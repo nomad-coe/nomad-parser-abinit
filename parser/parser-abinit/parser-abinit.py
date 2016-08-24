@@ -57,19 +57,57 @@ class ABINITContext(object):
             abi_time = time.strptime(str("%s %s") % (section["x_abinit_start_date"][0], section["x_abinit_start_time"][0]), "%a %d %b %Y %Hh%M")
             backend.addValue("time_run_date_start", time.mktime(abi_time))
 
+    def onClose_section_method(self, backend, gIndex, section):
+        """Trigger called when section_method is closed.
+        """
+        backend.addValue("number_of_spin_channels", self._input["x_abinit_var_nsppol"])
+        backend.addValue("scf_max_iteration", self._input["x_abinit_var_nstep"])
+        if self._input["x_abinit_var_toldfe"] is not None:
+            backend.addValue("scf_threshold_energy_change", unit_conversion.convert_unit(self._input["x_abinit_var_toldfe"][0], 'hartree'))
+        backend.addValue("self_interaction_correction_method", "")
+        if self._input["x_abinit_var_occopt"][0] == 3:
+            smear_kind = "fermi"
+        elif self._input["x_abinit_var_occopt"][0] == 4 or self._input["x_abinit_var_occopt"] == 5:
+            smear_kind = "marzari-vanderbilt"
+        elif self._input["x_abinit_var_occopt"][0] == 6:
+            smear_kind = "methfessel-paxton"
+        elif self._input["x_abinit_var_occopt"][0] == 7:
+            smear_kind = "gaussian"
+        elif self._input["x_abinit_var_occopt"][0] == 8:
+            logger.error("Illegal value for Abinit input variable occopt")
+        else:
+            smear_kind = ""
+        backend.addValue("smearing_kind", smear_kind)
+        if self._input["x_abinit_var_tsmear"] is not None:
+            backend.addValue("smearing_width", unit_conversion.convert_unit(self._input["x_abinit_var_tsmear"][0], 'hartree'))
+
+    def onClose_section_system(self, backend, gIndex, section):
+        """Trigger called when section_system is closed.
+        """
+        backend.addValue("configuration_periodic_dimensions", [True, True, True])
+        backend.addValue("number_of_atoms", self._input["x_abinit_var_natom"])
+        backend.addValue("spacegroup_3D_number", self._input["x_abinit_var_spgroup"])
+
     def onOpen_x_abinit_section_dataset(self, backend, gIndex, section):
+        """Trigger called when x_abinit_section_dataset is opened.
+        """
         self._inputGIndex = backend.openSection("x_abinit_section_input")
 
     def onClose_x_abinit_section_dataset(self, backend, gIndex, section):
+        """Trigger called when x_abinit_section_dataset is closed.
+        """
         self._current_dataset = section["x_abinit_dataset_number"][0]
 
         backend.closeSection("x_abinit_section_input", self._inputGIndex)
 
     def onOpen_x_abinit_section_input(self, backend, gIndex, section):
+        """Trigger called when x_abinit_section_input is opened.
+        """
         self._input = section
 
     def onClose_x_abinit_section_input(self, backend, gIndex, section):
-
+        """Trigger called when x_abinit_section_input is closed.
+        """
         dataset_vars = {}
         for varname in metaInfoEnv.infoKinds.keys():
             if "x_abinit_var_" in varname:
@@ -90,6 +128,8 @@ class ABINITContext(object):
             dataset_vars["x_abinit_var_natrd"] = dataset_vars["x_abinit_var_natom"]
         if dataset_vars["x_abinit_var_nsppol"] is None:
             dataset_vars["x_abinit_var_nsppol"] = 1
+        if dataset_vars["x_abinit_var_nspden"] is None:
+            dataset_vars["x_abinit_var_nspden"] = dataset_vars["x_abinit_var_nsppol"]
         if dataset_vars["x_abinit_var_nkpt"] is None:
             dataset_vars["x_abinit_var_nkpt"] = 1
         if dataset_vars["x_abinit_var_occopt"] is None:
