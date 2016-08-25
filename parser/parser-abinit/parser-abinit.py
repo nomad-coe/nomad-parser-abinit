@@ -6,6 +6,7 @@ from nomadcore.simple_parser import mainFunction
 from nomadcore.local_meta_info import loadJsonFile, InfoKindEl
 from nomadcore import parser_backend
 from nomadcore.unit_conversion import unit_conversion
+from ase.data import chemical_symbols
 import numpy as np
 import re
 import os, sys, json
@@ -75,6 +76,7 @@ class ABINITContext(object):
             smear_kind = "gaussian"
         elif self._input["x_abinit_var_occopt"][0] == 8:
             logger.error("Illegal value for Abinit input variable occopt")
+            smear_kind = ""
         else:
             smear_kind = ""
         backend.addValue("smearing_kind", smear_kind)
@@ -84,9 +86,33 @@ class ABINITContext(object):
     def onClose_section_system(self, backend, gIndex, section):
         """Trigger called when section_system is closed.
         """
-        backend.addValue("configuration_periodic_dimensions", [True, True, True])
+        species_count = {}
+        for z in self._input["x_abinit_var_znucl"][0]:
+            species_count[chemical_symbols[int(z)]] = 0
+        atom_types = []
+        for z in self._input["x_abinit_var_znucl"][0]:
+            symbol = chemical_symbols[int(z)]
+            species_count[symbol] += 1
+            atom_types.append(symbol+str(species_count[symbol]))
+        atom_labels = backend.arrayForMetaInfo("atom_labels", self._input["x_abinit_var_natom"])
+        for iatom in range(self._input["x_abinit_var_natom"][0]):
+            atom_labels[iatom] = atom_types[self._input["x_abinit_var_typat"][0][iatom]-1]
+        backend.addArrayValues("atom_labels", atom_labels)
+
+        if self._input["x_abinit_var_xcart"] is None:
+            if self._input["x_abinit_var_natom"][0] == 1:
+                backend.addArrayValues("atom_positions", np.array([[0, 0, 0]]))
+            else:
+                logger.error("Positions of atoms is not available")
+        else:
+            backend.addArrayValues("atom_positions", self._input["x_abinit_var_xcart"][0])
+
+        backend.addArrayValues("configuration_periodic_dimensions", np.array([True, True, True]))
+
         backend.addValue("number_of_atoms", self._input["x_abinit_var_natom"])
+
         backend.addValue("spacegroup_3D_number", self._input["x_abinit_var_spgroup"])
+
 
     def onOpen_x_abinit_section_dataset(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is opened.
@@ -216,6 +242,8 @@ def build_AbinitVarsSubMatcher(is_output=False):
                 pattern = "[-+0-9]+"
             elif metaInfo.dtypeStr == "C":
                 pattern = "[\w+]"
+            else:
+                raise Exception("Data type not supported")
             abiVars[re.sub("x_abinit_var_", "", varname)] = pattern
 
     # Some variables that Abinit writes to the output are not documented as input variables so we add them here to the
@@ -231,8 +259,8 @@ def build_AbinitVarsSubMatcher(is_output=False):
     # groups in regexp. Therefore we will only try to parse a subset of the input variables. This should be changed once
     # this problem is fixed
     supportedVars = ["acell", "amu", "bs_loband", "diemac", "ecut", "etotal", "fcart", "fftalg", "ionmov", "iscf",
-                     "istwfk", "jdtset", "natom", "kpt", "kptopt", "kptrlatt", "kptrlen", "mkmem", "nband", "ndtset",
-                     "ngfft", "nkpt", "nspden", "nsppol", "nstep", "nsym", "ntime", "ntypat", "occ", "occopt",
+                     "istwfk", "ixc", "jdtset", "natom", "kpt", "kptopt", "kptrlatt", "kptrlen", "mkmem", "nband",
+                     "ndtset", "ngfft", "nkpt", "nspden", "nsppol", "nstep", "nsym", "ntime", "ntypat", "occ", "occopt",
                      "optforces", "prtdos", "rprim", "shiftk", "spgroup", "spinat", "strten", "symafm", "symrel",
                      "tnons", "toldfe", "toldff", "tolmxf", "tolvrs", "tsmear", "typat", "wtk", "xangst", "xcart",
                      "xred", "znucl"]
@@ -270,19 +298,15 @@ headerMatcher = SM(name='Header',
                                                 SM(r"\s*Corning Inc. and other collaborators, see ~abinit/doc/developers/contributors.txt ."),
                                                 SM(r"\s*Please read ~abinit/doc/users/acknowledgments.html for suggested"),
                                                 SM(r"\s*acknowledgments of the ABINIT effort."),
-                                                SM(r"\s*For more information, see http://www.abinit.org ."),
-                                                SM(r"")
-                                                ]
+                                                SM(r"\s*For more information, see http://www.abinit.org .")
+                                               ]
                                    ),
                                 SM(r"\.Starting date : (?P<x_abinit_start_date>[0-9a-zA-Z ]*)\."),
                                 SM(r"^- \( at\s*(?P<x_abinit_start_time>[0-9a-z]*)\s*\)"),
-                                SM(r""),
                                 SM(r"^- input  file\s*->\s*(?P<x_abinit_input_file>\S*)"),
                                 SM(r"^- output file\s*->\s*(?P<x_abinit_output_file>\S*)"),
                                 SM(r"^- root for input  files\s*->\s*(?P<x_abinit_input_files_root>\S*)"),
-                                SM(r"^- root for output files\s*->\s*(?P<x_abinit_output_files_root>\S*)"),
-                                SM(r""),
-                                SM(r"")
+                                SM(r"^- root for output files\s*->\s*(?P<x_abinit_output_files_root>\S*)")
                                 ],
                    )
 
@@ -297,18 +321,18 @@ timerMatcher = SM(name='Timer',
                   )
 
 memestimationMatcher = SM(name='MemEstimation',
-                          startReStr=r"\s*(Symmetries|DATASET[0-9]{1,4})\s*: space group \S* \S* \S* \(\#\S*\);\s*Bravais\s*\S*\s*\([a-zA-Z- ]*\)$",
+                          startReStr=r"\s*(Symmetries|DATASET\s*[0-9]{1,4})\s*: space group \S* \S* \S* \(\#\S*\);\s*Bravais\s*\S*\s*\([a-zA-Z- .]*\)$",
                           endReStr=r"={80}",
                           repeats=True,
                           subMatchers=[SM(r"={80}"),
-                                       SM(r"\s*Values of the parameters that define the memory need of the present run"),
+                                       SM(r"\s*Values of the parameters that define the memory need (of the present run|for DATASET\s*[0-9]+\.)"),
                                        # We ignore the values (what is printed is abinit version dependent and depends
                                        # on the actual values of multiple parameters). The most important ones are
                                        # repeated later.
                                        SM(r"={80}"),
                                        SM(r"P This job should need less than\s*[0-9.]+\s*Mbytes of memory."),
                                        SM(r"\s*Rough estimation \(10\% accuracy\) of disk space for files :"),
-                                       SM(r"_ WF disk file :\s*[0-9.]\s*Mbytes ; DEN or POT disk file :\s*[0-9.]\s*Mbytes."),
+                                       SM(r"_ WF disk file :\s*[0-9.]+\s*Mbytes ; DEN or POT disk file :\s*[0-9.]+\s*Mbytes."),
                                        SM(r"={80}")
                                       ]
                          )
@@ -328,7 +352,10 @@ inputVarsMatcher = SM(name='InputVars',
                                    SM(r"-(\s*\w+\s*=\s*[0-9]+\s*,{0,1})*"),
                                    SM(r"-"),
                                    SM(r" -outvars: echo values of preprocessed input variables --------"),
-                                   ] + build_AbinitVarsSubMatcher()
+                                   ] + build_AbinitVarsSubMatcher() + [
+                                   SM(r"={80}"),
+                                   SM(r"\s*chkinp: Checking input parameters for consistency(\.|,\s*jdtset=\s*[0-9]+\.)", repeats=True)
+                                   ]
                       )
 
 SCFCycleMatcher = SM(name='SCFCycle',
@@ -348,6 +375,7 @@ datasetMatcher = SM(name='Dataset',
                     repeats=True,
                     sections=['section_method', 'section_system', 'x_abinit_section_dataset'],
                     subMatchers=[SM("={2}\s*DATASET\s*(?P<x_abinit_dataset_number>[0-9]+)\s*={66}"),
+                                 SM("-\s*nproc\s*=\s*[0-9]+"),
                                  SCFCycleMatcher
                                  ]
                     )

@@ -11,6 +11,8 @@ ndtset 2
 acell 10 10 10 
 ecut 10
 
+ixc -101130
+
 #First dataset : find the optimal bond length of H2, and associated total energy
    natom1  2             # There are two atoms
   ionmov1  3             # Use the modified Broyden algorithm
