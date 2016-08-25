@@ -281,153 +281,162 @@ def build_AbinitVarsSubMatcher(is_output=False):
 
 
 # description of the input
-headerMatcher = SM(name='Header',
-                   startReStr="",
-                   required=True,
-                   forwardMatch=True,
-                   subMatchers=[SM(r"\.Version (?P<program_version>[0-9a-zA-Z_.]*) of ABINIT\s*"),
-                                SM(r"\.\((?P<x_abinit_parallel_compilation>[a-zA-Z]*)\s*version, prepared for a (?P<program_compilation_host>\S*)\s*computer\)"),
-                                SM(r""),
-                                SM(startReStr="\.Copyright \(C\) 1998-[0-9]{4} ABINIT group .",
-                                   subMatchers=[SM(r"\s*ABINIT comes with ABSOLUTELY NO WARRANTY."),
-                                                SM(r"\s*It is free software, and you are welcome to redistribute it"),
-                                                SM(r"\s*under certain conditions \(GNU General Public License,"),
-                                                SM(r"\s*see ~abinit/COPYING or http://www.gnu.org/copyleft/gpl.txt\)."),
-                                                SM(r""),
-                                                SM(r"\s*ABINIT is a project of the Universite Catholique de Louvain,"),
-                                                SM(r"\s*Corning Inc. and other collaborators, see ~abinit/doc/developers/contributors.txt ."),
-                                                SM(r"\s*Please read ~abinit/doc/users/acknowledgments.html for suggested"),
-                                                SM(r"\s*acknowledgments of the ABINIT effort."),
-                                                SM(r"\s*For more information, see http://www.abinit.org .")
-                                               ]
-                                   ),
-                                SM(r"\.Starting date : (?P<x_abinit_start_date>[0-9a-zA-Z ]*)\."),
-                                SM(r"^- \( at\s*(?P<x_abinit_start_time>[0-9a-z]*)\s*\)"),
-                                SM(r"^- input  file\s*->\s*(?P<x_abinit_input_file>\S*)"),
-                                SM(r"^- output file\s*->\s*(?P<x_abinit_output_file>\S*)"),
-                                SM(r"^- root for input  files\s*->\s*(?P<x_abinit_input_files_root>\S*)"),
-                                SM(r"^- root for output files\s*->\s*(?P<x_abinit_output_files_root>\S*)")
-                                ],
-                   )
-
-timerMatcher = SM(name='Timer',
-                  startReStr="- Total cpu\s*time",
-                  endReStr="={80}",
-                  required=True,
-                  forwardMatch=True,
-                  subMatchers=[SM(r"- Total cpu\s*time\s*\(\S*\):\s*(?P<x_abinit_total_cpu_time>[0-9.]+)\s*\S*\s*\S*"),
-                               SM(r"- Total wall clock time\s*\(\S*\):\s*(?P<x_abinit_total_wallclock_time>[0-9.]+)\s*\S*\s*\S*")
-                               ]
-                  )
-
-memestimationMatcher = SM(name='MemEstimation',
-                          startReStr=r"\s*(Symmetries|DATASET\s*[0-9]{1,4})\s*: space group \S* \S* \S* \(\#\S*\);\s*Bravais\s*\S*\s*\([a-zA-Z- .]*\)$",
-                          endReStr=r"={80}",
-                          repeats=True,
-                          subMatchers=[SM(r"={80}"),
-                                       SM(r"\s*Values of the parameters that define the memory need (of the present run|for DATASET\s*[0-9]+\.)"),
-                                       # We ignore the values (what is printed is abinit version dependent and depends
-                                       # on the actual values of multiple parameters). The most important ones are
-                                       # repeated later.
-                                       SM(r"={80}"),
-                                       SM(r"P This job should need less than\s*[0-9.]+\s*Mbytes of memory."),
-                                       SM(r"\s*Rough estimation \(10\% accuracy\) of disk space for files :"),
-                                       SM(r"_ WF disk file :\s*[0-9.]+\s*Mbytes ; DEN or POT disk file :\s*[0-9.]+\s*Mbytes."),
-                                       SM(r"={80}")
-                                      ]
-                         )
-
-
-inputVarsMatcher = SM(name='InputVars',
-                      startReStr=r"-{80}",
-                      endReStr=r"={80}",
-                      required=True,
-                      subMatchers=[SM(r"-{13} Echo of variables that govern the present computation -{12}"),
-                                   SM(r"-{80}"),
-                                   SM(r"-"),
-                                   SM(r"- outvars: echo of selected default values"),
-                                   SM(r"-(\s*\w+\s*=\s*[0-9]+\s*,{0,1})*"),
-                                   SM(r"-"),
-                                   SM(r"- outvars: echo of global parameters not present in the input file"),
-                                   SM(r"-(\s*\w+\s*=\s*[0-9]+\s*,{0,1})*"),
-                                   SM(r"-"),
-                                   SM(r" -outvars: echo values of preprocessed input variables --------"),
-                                   ] + build_AbinitVarsSubMatcher() + [
-                                   SM(r"={80}"),
-                                   SM(r"\s*chkinp: Checking input parameters for consistency(\.|,\s*jdtset=\s*[0-9]+\.)", repeats=True)
+headerMatcher = \
+    SM(name='Header',
+       startReStr="",
+       required=True,
+       forwardMatch=True,
+       subMatchers=[SM(r"\.Version (?P<program_version>[0-9a-zA-Z_.]*) of ABINIT\s*"),
+                    SM(r"\.\((?P<x_abinit_parallel_compilation>[a-zA-Z]*)\s*version, prepared for a (?P<program_compilation_host>\S*)\s*computer\)"),
+                    SM(r""),
+                    SM(startReStr="\.Copyright \(C\) 1998-[0-9]{4} ABINIT group .",
+                       subMatchers=[SM(r"\s*ABINIT comes with ABSOLUTELY NO WARRANTY."),
+                                    SM(r"\s*It is free software, and you are welcome to redistribute it"),
+                                    SM(r"\s*under certain conditions \(GNU General Public License,"),
+                                    SM(r"\s*see ~abinit/COPYING or http://www.gnu.org/copyleft/gpl.txt\)."),
+                                    SM(r""),
+                                    SM(r"\s*ABINIT is a project of the Universite Catholique de Louvain,"),
+                                    SM(r"\s*Corning Inc. and other collaborators, see ~abinit/doc/developers/contributors.txt ."),
+                                    SM(r"\s*Please read ~abinit/doc/users/acknowledgments.html for suggested"),
+                                    SM(r"\s*acknowledgments of the ABINIT effort."),
+                                    SM(r"\s*For more information, see http://www.abinit.org .")
                                    ]
-                      )
+                       ),
+                    SM(r"\.Starting date : (?P<x_abinit_start_date>[0-9a-zA-Z ]*)\."),
+                    SM(r"^- \( at\s*(?P<x_abinit_start_time>[0-9a-z]*)\s*\)"),
+                    SM(r"^- input  file\s*->\s*(?P<x_abinit_input_file>\S*)"),
+                    SM(r"^- output file\s*->\s*(?P<x_abinit_output_file>\S*)"),
+                    SM(r"^- root for input  files\s*->\s*(?P<x_abinit_input_files_root>\S*)"),
+                    SM(r"^- root for output files\s*->\s*(?P<x_abinit_output_files_root>\S*)")
+                    ],
+        )
 
-SCFCycleMatcher = SM(name='SCFCycle',
-                     startReStr=r"\s*iter\s*Etot\(hartree\)\s*deltaE\(h\)(\s*\w+)*",
-                     repeats=True,
-                     sections=['section_single_configuration_calculation'],
-                     subMatchers=[SM(r"\s*ETOT\s*[0-9]+\s*(?P<energy_total_scf_iteration>[-+0-9.eEdD]+)\s*(?P<energy_change_scf_iteration>[-+0-9.eEdD]+)(\s*[-+0-9.eEdD]*)*",
-                                     sections=["section_scf_iteration"], repeats=True),
-                                  SM(r"\s*At SCF step\s*[0-9]+"),
-                                  SM(r"\s*>{9}\s*Etotal=\s*(?P<energy_total__hartree>[-+0-9.eEdD]+)")
-                                  ]
-                     )
+timerMatcher = \
+    SM(name='Timer',
+       startReStr="- Total cpu\s*time",
+       endReStr="={80}",
+       required=True,
+       forwardMatch=True,
+       subMatchers=[SM(r"- Total cpu\s*time\s*\(\S*\):\s*(?P<x_abinit_total_cpu_time>[0-9.]+)\s*\S*\s*\S*"),
+                    SM(r"- Total wall clock time\s*\(\S*\):\s*(?P<x_abinit_total_wallclock_time>[0-9.]+)\s*\S*\s*\S*")
+                    ]
+       )
 
-datasetMatcher = SM(name='Dataset',
-                    startReStr=r"={2}\s*DATASET\s*[0-9]+\s*={66}",
-                    forwardMatch=True,
-                    repeats=True,
-                    sections=['section_method', 'section_system', 'x_abinit_section_dataset'],
-                    subMatchers=[SM("={2}\s*DATASET\s*(?P<x_abinit_dataset_number>[0-9]+)\s*={66}"),
-                                 SM("-\s*nproc\s*=\s*[0-9]+"),
-                                 SCFCycleMatcher
-                                 ]
-                    )
+memestimationMatcher = \
+    SM(name='MemEstimation',
+       startReStr=r"\s*(Symmetries|DATASET\s*[0-9]{1,4})\s*: space group \S* \S* \S* \(\#\S*\);\s*Bravais\s*\S*\s*\([a-zA-Z- .]*\)$",
+       endReStr=r"={80}",
+       repeats=True,
+       subMatchers=[SM(r"={80}"),
+                    SM(r"\s*Values of the parameters that define the memory need (of the present run|for DATASET\s*[0-9]+\.)"),
+                    # We ignore the values (what is printed is abinit version dependent and depends
+                    # on the actual values of multiple parameters). The most important ones are
+                    # repeated later.
+                    SM(r"={80}"),
+                    SM(r"P This job should need less than\s*[0-9.]+\s*Mbytes of memory."),
+                    SM(r"\s*Rough estimation \(10\% accuracy\) of disk space for files :"),
+                    SM(r"_ WF disk file :\s*[0-9.]+\s*Mbytes ; DEN or POT disk file :\s*[0-9.]+\s*Mbytes."),
+                    SM(r"={80}")
+                    ]
+       )
 
 
-outputVarsMatcher = SM(name='OutputVars',
-                       startReStr=r"\s*-outvars: echo values of variables after computation  --------",
-                       endReStr=r"={80}",
+inputVarsMatcher = \
+    SM(name='InputVars',
+       startReStr=r"-{80}",
+       endReStr=r"={80}",
+       required=True,
+       subMatchers=[SM(r"-{13} Echo of variables that govern the present computation -{12}"),
+                    SM(r"-{80}"),
+                    SM(r"-"),
+                    SM(r"- outvars: echo of selected default values"),
+                    SM(r"-(\s*\w+\s*=\s*[0-9]+\s*,{0,1})*"),
+                    SM(r"-"),
+                    SM(r"- outvars: echo of global parameters not present in the input file"),
+                    SM(r"-(\s*\w+\s*=\s*[0-9]+\s*,{0,1})*"),
+                    SM(r"-"),
+                    SM(r" -outvars: echo values of preprocessed input variables --------"),
+                    ] + build_AbinitVarsSubMatcher() + [
+                    SM(r"={80}"),
+                    SM(r"\s*chkinp: Checking input parameters for consistency(\.|,\s*jdtset=\s*[0-9]+\.)", repeats=True)
+                    ]
+       )
+
+SCFCycleMatcher = \
+    SM(name='SCFCycle',
+       startReStr=r"\s*iter\s*Etot\(hartree\)\s*deltaE\(h\)(\s*\w+)*",
+       repeats=True,
+       sections=['section_single_configuration_calculation'],
+       subMatchers=[SM(r"\s*ETOT\s*[0-9]+\s*(?P<energy_total_scf_iteration>[-+0-9.eEdD]+)\s*(?P<energy_change_scf_iteration>[-+0-9.eEdD]+)(\s*[-+0-9.eEdD]*)*",
+                       sections=["section_scf_iteration"], repeats=True),
+                    SM(r"\s*At SCF step\s*[0-9]+"),
+                    SM(r"\s*>{9}\s*Etotal=\s*(?P<energy_total__hartree>[-+0-9.eEdD]+)")
+                    ]
+       )
+
+datasetMatcher = \
+    SM(name='Dataset',
+       startReStr=r"={2}\s*DATASET\s*[0-9]+\s*={66}",
+       forwardMatch=True,
+       repeats=True,
+       sections=['section_method', 'section_system', 'x_abinit_section_dataset'],
+       subMatchers=[SM("={2}\s*DATASET\s*(?P<x_abinit_dataset_number>[0-9]+)\s*={66}"),
+                    SM("-\s*nproc\s*=\s*[0-9]+"),
+                    SCFCycleMatcher
+                    ]
+       )
+
+
+outputVarsMatcher = \
+    SM(name='OutputVars',
+       startReStr=r"\s*-outvars: echo values of variables after computation  --------",
+       endReStr=r"={80}",
+       required=True,
+       subMatchers=build_AbinitVarsSubMatcher(is_output=True)
+       )
+
+footerMatcher = \
+    SM(name='Footer',
+       startReStr="\s*Suggested references for the acknowledgment of ABINIT usage.\s*",
+       required=True,
+       subMatchers=[SM(r""),
+                    SM(r"\s*The users of ABINIT have little formal obligations with respect to the ABINIT group"),
+                    SM(r"\s*\(those specified in the GNU General Public License, http://www.gnu.org/copyleft/gpl.txt\)."),
+                    SM(r"\s*However, it is common practice in the scientific literature,"),
+                    SM(r"\s*to acknowledge the efforts of people that have made the research possible."),
+                    SM(r"\s*In this spirit, please find below suggested citations of work written by ABINIT developers,"),
+                    SM(r"\s*corresponding to implementations inside of ABINIT that you have used in the present run."),
+                    SM(r"\s*Note also that it will be of great value to readers of publications presenting these results,"),
+                    SM(r"\s*to read papers enabling them to understand the theoretical formalism and details"),
+                    SM(r"\s*of the ABINIT implementation."),
+                    SM(r"\s*For information on why they are suggested, see also http://www.abinit.org/about/\?text=acknowledgments."),
+                    SM(r"={80}"),
+                    SM(r"", weak=True),
+                    SM(r"\s*Calculation completed.")
+                    ]
+       )
+
+mainFileDescription = \
+    SM(name='root',
+       startReStr="",
+       required=True,
+       subMatchers=[SM(name='NewRun',
+                       startReStr="",
+                       endReStr=r"\s*Overall time at end \(sec\) : cpu=\s*\S*\s*wall=\s*\S*",
                        required=True,
-                       subMatchers=build_AbinitVarsSubMatcher(is_output=True)
+                       fixedStartValues={'program_name': 'ABINIT', 'program_basis_set_type': 'plane waves'},
+                       sections=['section_run'],
+                       subMatchers=[headerMatcher,
+                                    memestimationMatcher,
+                                    inputVarsMatcher,
+                                    datasetMatcher,
+                                    outputVarsMatcher,
+                                    timerMatcher,
+                                    footerMatcher
+                                    ]
                        )
-
-footerMatcher = SM(name='Footer',
-                   startReStr="\s*Suggested references for the acknowledgment of ABINIT usage.\s*",
-                   required=True,
-                   subMatchers=[SM(r""),
-                                SM(r"\s*The users of ABINIT have little formal obligations with respect to the ABINIT group"),
-                                SM(r"\s*\(those specified in the GNU General Public License, http://www.gnu.org/copyleft/gpl.txt\)."),
-                                SM(r"\s*However, it is common practice in the scientific literature,"),
-                                SM(r"\s*to acknowledge the efforts of people that have made the research possible."),
-                                SM(r"\s*In this spirit, please find below suggested citations of work written by ABINIT developers,"),
-                                SM(r"\s*corresponding to implementations inside of ABINIT that you have used in the present run."),
-                                SM(r"\s*Note also that it will be of great value to readers of publications presenting these results,"),
-                                SM(r"\s*to read papers enabling them to understand the theoretical formalism and details"),
-                                SM(r"\s*of the ABINIT implementation."),
-                                SM(r"\s*For information on why they are suggested, see also http://www.abinit.org/about/\?text=acknowledgments."),
-                                SM(r"={80}"),
-                                SM(r"", weak=True),
-                                SM(r"\s*Calculation completed.")
-                                ]
-                   )
-
-mainFileDescription = SM(name='root',
-                         startReStr="",
-                         required=True,
-                         subMatchers=[SM(name='NewRun',
-                                         startReStr="",
-                                         endReStr=r"\s*Overall time at end \(sec\) : cpu=\s*\S*\s*wall=\s*\S*",
-                                         required=True,
-                                         fixedStartValues={'program_name': 'ABINIT', 'program_basis_set_type': 'plane waves'},
-                                         sections=['section_run'],
-                                         subMatchers=[headerMatcher,
-                                                      memestimationMatcher,
-                                                      inputVarsMatcher,
-                                                      datasetMatcher,
-                                                      outputVarsMatcher,
-                                                      timerMatcher,
-                                                      footerMatcher
-                                                      ]
-                                         )
-                                      ]
-                         )
+                    ]
+       )
 
 
 
