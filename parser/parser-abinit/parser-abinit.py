@@ -534,8 +534,8 @@ footerMatcher = \
                     SM(r"\s*For information on why they are suggested, see also "
                        r"http://www.abinit.org/about/\?text=acknowledgments.",
                        coverageIgnore=True),
-                    SM(r"-?\s*And optionally\s*:",
-                       coverageIgnore=True),
+                    SM(r"-?(\s*\[[0-9]+\])?(\s*\S*)*",
+                       coverageIgnore=True, weak=True, repeats=True),
                     SM(r"- Proc\.\s*[0-9]+\s*individual time \(sec\): cpu=\s*[0-9.]+\s*wall=\s*[0-9.]+\s*",
                        coverageIgnore=True),
                     SM(r"={80}",
