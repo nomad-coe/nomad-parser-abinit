@@ -1,3 +1,4 @@
+import setup_paths
 from builtins import object
 from nomadcore.caching_backend import CachingLevel
 from nomadcore.simple_parser import SimpleMatcher as SM
@@ -264,7 +265,7 @@ def build_abinit_vars_submatcher(is_output=False):
 
     # Currently we cannot create matchers for all the Abinit input variables as this would generate more than 100 named
     # groups in regexp. Therefore we will only try to parse a subset of the input variables. This should be changed once
-    # this problem is fixed
+    # this problem is fixed.
     supported_vars = \
         ["acell", "amu", "bs_loband", "diemac", "ecut", "etotal", "fcart", "fftalg", "ionmov", "iscf", "istwfk", "ixc",
          "jdtset", "natom", "kpt", "kptopt", "kptrlatt", "kptrlen", "mkmem", "nband", "ndtset", "ngfft", "nkpt",
@@ -301,17 +302,26 @@ headerMatcher = \
                        r"(?P<program_compilation_host>\S*)\s*computer\)"),
                     SM(r""),
                     SM(startReStr="\.Copyright \(C\) 1998-[0-9]{4} ABINIT group .",
-                       subMatchers=[SM(r"\s*ABINIT comes with ABSOLUTELY NO WARRANTY."),
-                                    SM(r"\s*It is free software, and you are welcome to redistribute it"),
-                                    SM(r"\s*under certain conditions \(GNU General Public License,"),
-                                    SM(r"\s*see ~abinit/COPYING or http://www.gnu.org/copyleft/gpl.txt\)."),
-                                    SM(r""),
-                                    SM(r"\s*ABINIT is a project of the Universite Catholique de Louvain,"),
+                       coverageIgnore=True,
+                       subMatchers=[SM(r"\s*ABINIT comes with ABSOLUTELY NO WARRANTY.",
+                                       coverageIgnore=True),
+                                    SM(r"\s*It is free software, and you are welcome to redistribute it",
+                                       coverageIgnore=True),
+                                    SM(r"\s*under certain conditions \(GNU General Public License,",
+                                       coverageIgnore=True),
+                                    SM(r"\s*see ~abinit/COPYING or http://www.gnu.org/copyleft/gpl.txt\).",
+                                       coverageIgnore=True),
+                                    SM(r"\s*ABINIT is a project of the Universite Catholique de Louvain,",
+                                       coverageIgnore=True),
                                     SM(r"\s*Corning Inc. and other collaborators, see "
-                                       r"~abinit/doc/developers/contributors.txt ."),
-                                    SM(r"\s*Please read ~abinit/doc/users/acknowledgments.html for suggested"),
-                                    SM(r"\s*acknowledgments of the ABINIT effort."),
-                                    SM(r"\s*For more information, see http://www.abinit.org .")
+                                       r"~abinit/doc/developers/contributors.txt .",
+                                       coverageIgnore=True),
+                                    SM(r"\s*Please read ~abinit/doc/users/acknowledgments.html for suggested",
+                                       coverageIgnore=True),
+                                    SM(r"\s*acknowledgments of the ABINIT effort.",
+                                       coverageIgnore=True),
+                                    SM(r"\s*For more information, see http://www.abinit.org .",
+                                       coverageIgnore=True)
                                     ]
                        ),
                     SM(r"\.Starting date : (?P<x_abinit_start_date>[0-9a-zA-Z ]*)\."),
@@ -329,8 +339,38 @@ timerMatcher = \
        endReStr="={80}",
        required=True,
        forwardMatch=True,
+       coverageIgnore=True,
        subMatchers=[SM(r"- Total cpu\s*time\s*\(\S*\):\s*(?P<x_abinit_total_cpu_time>[0-9.]+)\s*\S*\s*\S*"),
-                    SM(r"- Total wall clock time\s*\(\S*\):\s*(?P<x_abinit_total_wallclock_time>[0-9.]+)\s*\S*\s*\S*")
+                    SM(r"- Total wall clock time\s*\(\S*\):\s*(?P<x_abinit_total_wallclock_time>[0-9.]+)\s*\S*\s*\S*"),
+                    SM(r"-",
+                       coverageIgnore=True),
+                    SM(name="Profiling",
+                       startReStr="- For major independent code sections, cpu and wall times \(sec\),",
+                       endReStr="- subtotal(\s*[0-9.]+){4}",
+                       repeats=True,
+                       coverageIgnore=True,
+                       subMatchers=[SM(r"-\s*as well as % of the (total time and number of calls|time and number of "
+                                       r"calls for node [0-9]+-)",
+                                       coverageIgnore=True),
+                                    SM(r"-<BEGIN_TIMER mpi_nprocs = [0-9]+, omp_nthreads = [0-9]+, mpi_rank = "
+                                       r"([0-9]+|world)>",
+                                       coverageIgnore=True),
+                                    SM(r"- cpu_time =\s*[0-9.]+, wall_time =\s*[0-9.]+",
+                                       coverageIgnore=True),
+                                    SM(r"-",
+                                       coverageIgnore=True),
+                                    SM(r"- routine\s*cpu\s*%\s*wall\s*%\s*number of calls\s*Gflops",
+                                       coverageIgnore=True),
+                                    SM(r"-\s*\(-1=no count\)",
+                                       coverageIgnore=True),
+                                    SM(r"-(\s*\S*)+(\s*[-0-9.]+){6}",
+                                       coverageIgnore=True, repeats=True),
+                                    SM(r"-<END_TIMER>",
+                                       coverageIgnore=True),
+                                    SM(r"-",
+                                       coverageIgnore=True, required=False),
+                                    ]
+                       )
                     ]
        )
 
@@ -343,15 +383,21 @@ memestimationMatcher = \
        subMatchers=[SM(r"={80}",
                        coverageIgnore=True),
                     SM(r"\s*Values of the parameters that define the memory need (of the present run|for DATASET\s*"
-                       r"[0-9]+\.)"),
+                       r"[0-9]+\.)",
+                       coverageIgnore=True),
                     # We ignore the values (what is printed is abinit version dependent and depends
                     # on the actual values of multiple parameters). The most important ones are
                     # repeated later.
-                    SM(r"={80}"),
-                    SM(r"P This job should need less than\s*[0-9.]+\s*Mbytes of memory."),
-                    SM(r"\s*Rough estimation \(10\% accuracy\) of disk space for files :"),
-                    SM(r"_ WF disk file :\s*[0-9.]+\s*Mbytes ; DEN or POT disk file :\s*[0-9.]+\s*Mbytes."),
-                    SM(r"={80}")
+                    SM(r"={80}",
+                       coverageIgnore=True),
+                    SM(r"P This job should need less than\s*[0-9.]+\s*Mbytes of memory.",
+                       coverageIgnore=True),
+                    SM(r"\s*Rough estimation \(10\% accuracy\) of disk space for files :",
+                       coverageIgnore=True),
+                    SM(r"_ WF disk file :\s*[0-9.]+\s*Mbytes ; DEN or POT disk file :\s*[0-9.]+\s*Mbytes.",
+                       coverageIgnore=True),
+                    SM(r"={80}",
+                       coverageIgnore=True)
                     ]
        )
 
@@ -361,23 +407,33 @@ inputVarsMatcher = \
        startReStr=r"-{80}",
        endReStr=r"={80}",
        required=True,
-       subMatchers=[SM(r"-{13} Echo of variables that govern the present computation -{12}"),
-                    SM(r"-{80}"),
-                    SM(r"-"),
-                    SM(r"- outvars: echo of selected default values"),
+       coverageIgnore=True,
+       subMatchers=[SM(r"-{13} Echo of variables that govern the present computation -{12}",
+                       coverageIgnore=True),
+                    SM(r"-{80}",
+                       coverageIgnore=True),
+                    SM(r"-",
+                       coverageIgnore=True),
+                    SM(r"- outvars: echo of selected default values",
+                       coverageIgnore=True),
                     SM(r"-(\s*\w+\s*=\s*[0-9]+\s*,{0,1})*"),
-                    SM(r"-"),
-                    SM(r"- outvars: echo of global parameters not present in the input file"),
+                    SM(r"-",
+                       coverageIgnore=True),
+                    SM(r"- outvars: echo of global parameters not present in the input file",
+                       coverageIgnore=True),
                     SM(r"-(\s*\w+\s*=\s*[0-9]+\s*,{0,1})*"),
-                    SM(r"-"),
-                    SM(r" -outvars: echo values of preprocessed input variables --------"),
+                    SM(r"-",
+                       coverageIgnore=True),
+                    SM(r" -outvars: echo values of preprocessed input variables --------",
+                       coverageIgnore=True),
                     ] + build_abinit_vars_submatcher() + [
                     SM(r"={80}",
                        coverageIgnore=True),
                     SM(r"\s*chkinp: Checking input parameters for consistency(\.|,\s*jdtset=\s*[0-9]+\.)",
-                       repeats=True)
+                       coverageIgnore=True, repeats=True)
                     ]
        )
+
 
 SCFCycleMatcher = \
     SM(name='SCFCycle',
@@ -396,14 +452,44 @@ SCFCycleMatcher = \
                     ]
        )
 
+
 datasetMatcher = \
     SM(name='Dataset',
        startReStr=r"={2}\s*DATASET\s*[0-9]+\s*={66}",
        forwardMatch=True,
        repeats=True,
        sections=['section_method', 'section_system', 'x_abinit_section_dataset'],
-       subMatchers=[SM("={2}\s*DATASET\s*(?P<x_abinit_dataset_number>[0-9]+)\s*={66}"),
-                    SM("-\s*nproc\s*=\s*[0-9]+"),
+       subMatchers=[SM(r"={2}\s*DATASET\s*(?P<x_abinit_dataset_number>[0-9]+)\s*={66}"),
+                    SM(r"-\s*nproc\s*=\s*[0-9]+"),
+                    SM(name="defaultXC",
+                       startReStr=r"\s*Exchange-correlation functional for the present dataset will be:",
+                       required=False,
+                       coverageIgnore=True,
+                       subMatchers=[SM(r"(\s*\S*)+\s*-\s*ixc=(?P<x_abinit_default_xc>[-0-9]+)"),
+                                    SM(r"\s*Citation for XC functional:",
+                                       coverageIgnore=True)
+                                    ]
+                       ),
+                    SM(r"\s*Real\(R\)\+Recip\(G\) space primitive vectors, cartesian coordinates \(Bohr,Bohr\^-1\):",
+                       coverageIgnore=True),
+                    SM(r"\s*Unit cell volume ucvol=\s*[-+0-9.eEdD]*\s*bohr\^3"),
+                    SM(r"\s*Angles \(23,13,12\)=(\s*[-+0-9.eEdD]*){3}\s*degrees"),
+                    SM(r"\s*getcut: wavevector=(\s*[0-9.]*){3}\s*ngfft=(\s*[0-9]*){3}"),
+                    SM(r"\s*ecut\(hartree\)=\s*[0-9.]*\s*=> boxcut\(ratio\)=\s*[0-9.]*"),
+                    SM(r"--- Pseudopotential description ------------------------------------------------",
+                       coverageIgnore=True),
+                    SM(name="pseudopotential",
+                       startReStr=r"-\s*pspini: atom type\s*[0-9]+\s*psp file is \S*",
+                       forwardMatch=True,
+                       repeats=True,
+                       coverageIgnore=True,
+                       subMatchers=[SM(r"-\s*pspini: atom type\s*[0-9]+\s*psp file is\s*\S*"),
+                                    SM(r"-\s*pspatm: opening atomic psp file\s*\S*",
+                                       coverageIgnore=True)
+                                    ]
+                       ),
+                    SM(r"-{80}",
+                       coverageIgnore=True),
                     SCFCycleMatcher
                     ]
        )
@@ -413,6 +499,7 @@ outputVarsMatcher = \
     SM(name='OutputVars',
        startReStr=r"\s*-outvars: echo values of variables after computation  --------",
        endReStr=r"={80}",
+       coverageIgnore=True,
        required=True,
        subMatchers=build_abinit_vars_submatcher(is_output=True)
        )
@@ -473,7 +560,10 @@ mainFileDescription = \
                        subMatchers=[headerMatcher,
                                     memestimationMatcher,
                                     inputVarsMatcher,
+                                    SM(r"={80}", coverageIgnore=True),
                                     datasetMatcher,
+                                    SM(r"== END DATASET\(S\) ==============================================================", coverageIgnore=True),
+                                    SM(r"={80}", coverageIgnore=True, weak=True),
                                     outputVarsMatcher,
                                     timerMatcher,
                                     footerMatcher
@@ -485,9 +575,9 @@ mainFileDescription = \
 
 if __name__ == "__main__":
     superContext = ABINITContext()
-    mainFunction(mainFileDescription,
-                 metaInfoEnv,
-                 parserInfo,
+    mainFunction(mainFileDescription=mainFileDescription,
+                 metaInfoEnv=metaInfoEnv,
+                 parserInfo=parserInfo,
                  cachingLevelForMetaName={'x_abinit_section_var': CachingLevel.Cache
                                           },
                  superContext=superContext)
