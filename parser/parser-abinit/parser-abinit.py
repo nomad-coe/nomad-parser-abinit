@@ -385,9 +385,10 @@ memestimationMatcher = \
                     SM(r"\s*Values of the parameters that define the memory need (of the present run|for DATASET\s*"
                        r"[0-9]+\.)",
                        coverageIgnore=True),
-                    # We ignore the values (what is printed is abinit version dependent and depends
-                    # on the actual values of multiple parameters). The most important ones are
-                    # repeated later.
+                    # We ignore the variables printed here, as what is printed is Abinit version dependent and depends
+                    # on the actual values of multiple parameters. The most important variables are repeated later.
+                    SM(r"(-|P)?(\s*\S*\s*=\s*[0-9]+)+",
+                       coverageIgnore=True, repeats=True),
                     SM(r"={80}",
                        coverageIgnore=True),
                     SM(r"P This job should need less than\s*[0-9.]+\s*Mbytes of memory.",
