@@ -63,28 +63,28 @@ class ABINITContext(object):
             backend.addValue("run_clean_end", True)
         # Convert date and time to epoch time
         if (section["x_abinit_start_date"] is not None) and (section["x_abinit_start_time"] is not None):
-            abi_time = time.strptime(str("%s %s") % (section["x_abinit_start_date"][0],
-                                                     section["x_abinit_start_time"][0]), "%a %d %b %Y %Hh%M")
+            abi_time = time.strptime(str("%s %s") % (section["x_abinit_start_date"][-1],
+                                                     section["x_abinit_start_time"][-1]), "%a %d %b %Y %Hh%M")
             backend.addValue("time_run_date_start", time.mktime(abi_time))
 
     def onClose_section_method(self, backend, gIndex, section):
         """Trigger called when section_method is closed.
         """
-        backend.addValue("number_of_spin_channels", self.input["x_abinit_var_nsppol"])
-        backend.addValue("scf_max_iteration", self.input["x_abinit_var_nstep"])
+        backend.addValue("number_of_spin_channels", self.input["x_abinit_var_nsppol"][-1])
+        backend.addValue("scf_max_iteration", self.input["x_abinit_var_nstep"][-1])
         if self.input["x_abinit_var_toldfe"] is not None:
             backend.addValue("scf_threshold_energy_change",
-                             unit_conversion.convert_unit(self.input["x_abinit_var_toldfe"][0], 'hartree'))
+                             unit_conversion.convert_unit(self.input["x_abinit_var_toldfe"][-1], 'hartree'))
         backend.addValue("self_interaction_correction_method", "")
-        if self.input["x_abinit_var_occopt"][0] == 3:
+        if self.input["x_abinit_var_occopt"][-1] == 3:
             smear_kind = "fermi"
-        elif self.input["x_abinit_var_occopt"][0] == 4 or self.input["x_abinit_var_occopt"] == 5:
+        elif self.input["x_abinit_var_occopt"][-1] == 4 or self.input["x_abinit_var_occopt"] == 5:
             smear_kind = "marzari-vanderbilt"
-        elif self.input["x_abinit_var_occopt"][0] == 6:
+        elif self.input["x_abinit_var_occopt"][-1] == 6:
             smear_kind = "methfessel-paxton"
-        elif self.input["x_abinit_var_occopt"][0] == 7:
+        elif self.input["x_abinit_var_occopt"][-1] == 7:
             smear_kind = "gaussian"
-        elif self.input["x_abinit_var_occopt"][0] == 8:
+        elif self.input["x_abinit_var_occopt"][-1] == 8:
             logger.error("Illegal value for Abinit input variable occopt")
             smear_kind = ""
         else:
@@ -92,22 +92,22 @@ class ABINITContext(object):
         backend.addValue("smearing_kind", smear_kind)
         if self.input["x_abinit_var_tsmear"] is not None:
             backend.addValue("smearing_width",
-                             unit_conversion.convert_unit(self.input["x_abinit_var_tsmear"][0], 'hartree'))
+                             unit_conversion.convert_unit(self.input["x_abinit_var_tsmear"][-1], 'hartree'))
 
     def onClose_section_system(self, backend, gIndex, section):
         """Trigger called when section_system is closed.
         """
         species_count = {}
-        for z in self.input["x_abinit_var_znucl"][0]:
+        for z in self.input["x_abinit_var_znucl"][-1]:
             species_count[chemical_symbols[int(z)]] = 0
         atom_types = []
-        for z in self.input["x_abinit_var_znucl"][0]:
+        for z in self.input["x_abinit_var_znucl"][-1]:
             symbol = chemical_symbols[int(z)]
             species_count[symbol] += 1
             atom_types.append(symbol+str(species_count[symbol]))
-        atom_labels = backend.arrayForMetaInfo("atom_labels", self.input["x_abinit_var_natom"])
-        for atom_index in range(self.input["x_abinit_var_natom"][0]):
-            atom_labels[atom_index] = atom_types[self.input["x_abinit_var_typat"][0][atom_index] - 1]
+        atom_labels = backend.arrayForMetaInfo("atom_labels", self.input["x_abinit_var_natom"][-1])
+        for atom_index in range(self.input["x_abinit_var_natom"][-1]):
+            atom_labels[atom_index] = atom_types[self.input["x_abinit_var_typat"][-1][atom_index] - 1]
         backend.addArrayValues("atom_labels", atom_labels)
 
         if self.input["x_abinit_var_xcart"] is None:
@@ -116,13 +116,13 @@ class ABINITContext(object):
             else:
                 logger.error("Positions of atoms is not available")
         else:
-            backend.addArrayValues("atom_positions", self.input["x_abinit_var_xcart"][0])
+            backend.addArrayValues("atom_positions", self.input["x_abinit_var_xcart"][-1])
 
         backend.addArrayValues("configuration_periodic_dimensions", np.array([True, True, True]))
 
-        backend.addValue("number_of_atoms", self.input["x_abinit_var_natom"])
+        backend.addValue("number_of_atoms", self.input["x_abinit_var_natom"][-1])
 
-        backend.addValue("spacegroup_3D_number", self.input["x_abinit_var_spgroup"])
+        backend.addValue("spacegroup_3D_number", self.input["x_abinit_var_spgroup"][-1])
 
     def onOpen_x_abinit_section_dataset(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is opened.
@@ -132,7 +132,7 @@ class ABINITContext(object):
     def onClose_x_abinit_section_dataset(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is closed.
         """
-        self.current_dataset = section["x_abinit_dataset_number"][0]
+        self.current_dataset = section["x_abinit_dataset_number"][-1]
 
         backend.closeSection("x_abinit_section_input", self.inputGIndex)
 
@@ -441,8 +441,8 @@ SCFCycleMatcher = \
        startReStr=r"\s*iter\s*Etot\(hartree\)\s*deltaE\(h\)(\s*\w+)*",
        repeats=True,
        sections=['section_single_configuration_calculation'],
-       subMatchers=[SM(r"\s*ETOT\s*[0-9]+\s*(?P<energy_total_scf_iteration>[-+0-9.eEdD]+)\s*"
-                       r"(?P<energy_change_scf_iteration>[-+0-9.eEdD]+)(\s*[-+0-9.eEdD]*)*",
+       subMatchers=[SM(r"\s*ETOT\s*[0-9]+\s*(?P<energy_total_scf_iteration__hartree>[-+0-9.eEdD]+)\s*"
+                       r"(?P<energy_change_scf_iteration__hartree>[-+0-9.eEdD]+)(\s*[-+0-9.eEdD]*)*",
                        sections=["section_scf_iteration"],
                        repeats=True),
                     SM(r"\s*At SCF step\s*(?P<number_of_scf_iterations>[0-9]+)\s*(, etot is converged :|, forces are "
