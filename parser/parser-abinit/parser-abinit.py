@@ -330,7 +330,6 @@ def build_abinit_vars_submatcher(is_output=False):
     matchers.append(SM(r""))
     return matchers
 
-
 # description of the input
 headerMatcher = \
     SM(name='Header',
@@ -442,7 +441,6 @@ memestimationMatcher = \
                     ]
        )
 
-
 inputVarsMatcher = \
     SM(name='InputVars',
        startReStr=r"-{80}",
@@ -495,14 +493,15 @@ SCFCycleMatcher = \
 
 
 datasetHeaderMatcher = \
-    SM(name='Dataset',
+    SM(name='DatasetHeader',
        startReStr=r"={2}\s*DATASET\s*[0-9]+\s*={66}",
+       endReStr=r"={80}",
        forwardMatch=True,
        repeats=False,
        sections=['x_abinit_section_dataset_header'],
        subMatchers=[SM(r"={2}\s*DATASET\s*(?P<x_abinit_dataset_number>[0-9]+)\s*={66}"),
                     SM(r"-\s*nproc\s*=\s*[0-9]+"),
-                    SM(name="defaultXC",
+                    SM(name="XC",
                        startReStr=r"\s*Exchange-correlation functional for the present dataset will be:",
                        required=False,
                        coverageIgnore=True,
@@ -530,6 +529,12 @@ datasetHeaderMatcher = \
                                     ]
                        ),
                     SM(r"-{80}",
+                       coverageIgnore=True),
+                    SM(r"P newkpt: treating\s*[0-9]+\s*bands with npw=\s*[0-9]+\s*for ikpt=\s*[0-9]+\s*by node\s*[0-9]+",
+                       coverageIgnore=True,
+                       repeats=True,
+                       required=False),
+                    SM(r"_setup2: Arith. and geom. avg. npw \(full set\) are(\s*[0-9.]+\s*){2}",
                        coverageIgnore=True)
                     ]
        )
