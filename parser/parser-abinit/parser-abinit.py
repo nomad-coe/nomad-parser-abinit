@@ -7,6 +7,7 @@ from nomadcore.local_meta_info import loadJsonFile, InfoKindEl
 from nomadcore import parser_backend
 from nomadcore.unit_conversion import unit_conversion
 from ase.data import chemical_symbols
+from AbinitXC import ABINIT_NATIVE_IXC, ABINIT_LIBXC_IXC
 import numpy as np
 import re
 import os
@@ -96,61 +97,18 @@ class ABINITContext(object):
             backend.addValue("smearing_width",
                              unit_conversion.convert_unit(self.input["x_abinit_var_tsmear"][-1], 'hartree'))
 
-        ABINIT_NATIVE_IXC = {'0':  [{}],
-                             '1':  [{'XC_functional_name': 'LDA_XC_TETER93'}],
-                             '2':  [{'XC_functional_name': 'LDA_X'},
-                                    {'XC_functional_name': 'LDA_C_PZ'}],
-                             # 3 - LDA, old Teter rational polynomial parametrization (4/91)
-                             '4':  [{'XC_functional_name': 'LDA_X'},
-                                    {'XC_functional_name': 'LDA_C_WIGNER'}],
-                             '5':  [{'XC_functional_name': 'LDA_X'},
-                                    {'XC_functional_name': 'LDA_C_HL'}],
-                             '6':  [{'XC_functional_name': 'LDA_X'},
-                                    {'XC_functional_name': 'LDA_C_XALPHA'}],
-                             '7':  [{'XC_functional_name': 'LDA_X'},
-                                    {'XC_functional_name': 'LDA_C_PW'}],
-                             # 8 - x-only part of the Perdew-Wang 92 functional
-                             # 9 - x- and RPA correlation part of the Perdew-Wang 92 functional
-                             # 10 - non-existent
-                             '11': [{'XC_functional_name': 'GGA_X_PBE'},
-                                    {'XC_functional_name': 'GGA_C_PBE'}],
-                             '12': [{'XC_functional_name': 'GGA_X_PBE'}],
-                             '13': [{'XC_functional_name': 'GGA_X_LB'},
-                                    {'XC_functional_name': 'LDA_C_PW'}],
-                             '14': [{'XC_functional_name': 'GGA_X_PBE_R'},
-                                    {'XC_functional_name': '?'}],
-                             '15': [{'XC_functional_name': 'GGA_X_RPBE'},
-                                    {'XC_functional_name': '?'}],
-                             '16': [{'XC_functional_name': 'GGA_XC_HCTH_93'}],
-                             '17': [{'XC_functional_name': 'GGA_XC_HCTH_120'}],
-                             '18': [{'XC_functional_name': 'GGA_X_B88'},
-                                    {'XC_functional_name': 'GGA_C_LYP'}],
-                             '19': [{'XC_functional_name': 'GGA_X_B88'},
-                                    {'XC_functional_name': 'GGA_C_P86'}],
-                             # 20 - Fermi-Amaldi xc ( -1/N Hartree energy, where N is the number of electrons per cell;
-                             #      G=0 is not taken into account however), for TDDFT tests.
-                             # 21 - same as 20, except that the xc-kernel is the LDA (ixc=1) one, for TDDFT tests.
-                             # 22 - same as 20, except that the xc-kernel is the Burke-Petersilka-Gross hybrid, for
-                             #      TDDFT tests.
-                             '23': [{'XC_functional_name': 'GGA_X_WC'},
-                                    {'XC_functional_name': '?'}],
-                             '24': [{'XC_functional_name': 'GGA_X_C09X'},
-                                    {'XC_functional_name': '?'}],
-                             # 25 - non-existent
-                             '26': [{'XC_functional_name': 'GGA_XC_HCTH_147'}],
-                             '27': [{'XC_functional_name': 'GGA_XC_HCTH_407'}],
-                             '28': [{'XC_functional_name': 'GGA_X_OPTX'},
-                                    {'XC_functional_name': 'GGA_C_LYP'}],
-                             # 40 - Hartree-Fock
-                             '41': [{'XC_functional_name': 'HYB_GGA_XC_PBEH'}],
-                             '42': [{'XC_functional_name': 'HYB_GGA_XC_PBE0_13'}]
-                             }
-
-        if int(self.input["x_abinit_var_ixc"][-1]) >= 0:
-            xc_functionals = ABINIT_NATIVE_IXC[str(self.input["x_abinit_var_ixc"][-1])]
+        backend.addValue("electronic_structure_method", "DFT")
+        ixc = int(self.input["x_abinit_var_ixc"][-1])
+        if ixc >= 0:
+            xc_functionals = ABINIT_NATIVE_IXC[str(ixc)]
         else:
-            # TODO Libxc functionals
-            xc_functionals = None
+            xc_functionals = []
+            functional1 = -ixc//1000
+            if functional1 > 0:
+                xc_functionals.append(ABINIT_LIBXC_IXC[str(functional1)])
+            functional2 = -ixc - (-ixc//1000)*1000
+            if functional2 > 0:
+                xc_functionals.append(ABINIT_LIBXC_IXC[str(functional2)])
 
         if xc_functionals is not None:
             for xc_functional in xc_functionals:
