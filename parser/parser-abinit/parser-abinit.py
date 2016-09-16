@@ -38,8 +38,10 @@ class ABINITContext(object):
         self.current_dataset = None
         self.abinitVars = None
         self.input = None
+        self.simulation_cell = None
         self.inputGIndex = None
         self.methodGIndex = None
+        self.systemGIndex = None
 
     def initialize_values(self):
         """allows to reset values if the same superContext is used to parse different files"""
@@ -49,9 +51,11 @@ class ABINITContext(object):
         #  - dataset "1", as this is the default dataset number used by Abinit when the user
         #    does not specify the dataset number
         self.abinitVars = {key: {} for key in [0, 1]}
-        self.inputGIndex = None
         self.input = None
+        self.simulation_cell = None
+        self.inputGIndex = None
         self.methodGIndex = None
+        self.systemGIndex = None
 
     def startedParsing(self, filename, parser):
         """called when parsing starts"""
@@ -163,10 +167,21 @@ class ABINITContext(object):
         self.methodGIndex = backend.openSection("section_method")
         backend.closeSection("section_method", self.methodGIndex)
 
+        self.simulation_cell = []
+        for axis in [1, 2, 3]:
+            self.simulation_cell.append(section["x_abinit_vprim_%s"%axis][-1].split())
+
     def onOpen_section_single_configuration_calculation(self, backend, gIndex, section):
         """Trigger called when section_single_configuration_calculation is opened.
         """
+        self.systemGIndex = backend.openSection("section_system")
+        backend.addValue("single_configuration_calculation_to_system_ref", self.systemGIndex)
         backend.addValue("single_configuration_to_calculation_method_ref", self.methodGIndex)
+
+    def onOClose_section_single_configuration_calculation(self, backend, gIndex, section):
+        """Trigger called when section_single_configuration_calculation is closed.
+        """
+        backend.closeSection("section_system", self.systemGIndex)
 
     def onOpen_x_abinit_section_input(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_input is opened.
@@ -512,6 +527,9 @@ datasetHeaderMatcher = \
                        ),
                     SM(r"\s*Real\(R\)\+Recip\(G\) space primitive vectors, cartesian coordinates \(Bohr,Bohr\^-1\):",
                        coverageIgnore=True),
+                    SM(r"\s*R\(1\)=(?P<x_abinit_vprim_1>(\s*[0-9.-]+){3})\s*G\(1\)=(\s*[0-9.-]+){3}"),
+                    SM(r"\s*R\(2\)=(?P<x_abinit_vprim_2>(\s*[0-9.-]+){3})\s*G\(2\)=(\s*[0-9.-]+){3}"),
+                    SM(r"\s*R\(3\)=(?P<x_abinit_vprim_3>(\s*[0-9.-]+){3})\s*G\(3\)=(\s*[0-9.-]+){3}"),
                     SM(r"\s*Unit cell volume ucvol=\s*[-+0-9.eEdD]*\s*bohr\^3"),
                     SM(r"\s*Angles \(23,13,12\)=(\s*[-+0-9.eEdD]*){3}\s*degrees"),
                     SM(r"\s*getcut: wavevector=(\s*[0-9.]*){3}\s*ngfft=(\s*[0-9]*){3}"),
@@ -544,7 +562,7 @@ datasetMatcher = \
        startReStr=r"={2}\s*DATASET\s*[0-9]+\s*={66}",
        forwardMatch=True,
        repeats=True,
-       sections=['section_system', 'x_abinit_section_dataset'],
+       sections=['x_abinit_section_dataset'],
        subMatchers=[datasetHeaderMatcher,
                     SCFCycleMatcher
                     ]
