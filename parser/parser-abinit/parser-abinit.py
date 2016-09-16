@@ -329,61 +329,61 @@ def build_abinit_vars_submatcher(is_output=False):
          "tsmear", "typat", "wtk", "xangst", "xcart", "xred", "znucl"]
     for varname in sorted(abi_vars):
         if varname in supported_vars:
-            matchers.append(SM(startReStr=r"[-P]?\s+%s[0-9]{0,4}\s+(%s\s*)+\s*(Hartree|Bohr)?"
+            matchers.append(SM(startReStr=r"[-P]?\s+%s[0-9]{0,4}\s+(%s\s*)+\s*(Hartree|Bohr)?\s*$"
                                           % (varname, abi_vars[varname]),
                                forwardMatch=True,
                                sections=['x_abinit_section_var'],
                                repeats=True,
                                subMatchers=[SM(r"[-P]?\s+(?P<x_abinit_varname>%s)((?P<x_abinit_vardtset>[0-9]{1,4})\s+|"
-                                               r"\s+)(?P<x_abinit_varvalue>(%s\s*)+)\s*(Hartree|Bohr)?\n"
+                                               r"\s+)(?P<x_abinit_varvalue>(%s\s*)+)\s*(Hartree|Bohr)?\s*$"
                                                % (varname, abi_vars[varname])),
-                                            SM(r"\s{20,}(?P<x_abinit_varvalue>(%s\s*)+)\n" % (abi_vars[varname]),
+                                            SM(r"\s{20,}(?P<x_abinit_varvalue>(%s\s*)+)\s*$" % (abi_vars[varname]),
                                                repeats=True)
                                             ]
                                )
                             )
-    matchers.append(SM(r""))
+    matchers.append(SM(r"\s*", coverageIgnore=True))
     return matchers
 
 # description of the input
 headerMatcher = \
     SM(name='Header',
-       startReStr="",
+       startReStr=r"\.Version\s*[0-9a-zA-Z_.]*\s*of ABINIT\s*$",
        required=True,
        forwardMatch=True,
-       subMatchers=[SM(r"\.Version (?P<program_version>[0-9a-zA-Z_.]*) of ABINIT\s*"),
+       subMatchers=[SM(r"\.Version (?P<program_version>[0-9a-zA-Z_.]*) of ABINIT\s*$"),
                     SM(r"\.\((?P<x_abinit_parallel_compilation>[a-zA-Z]*)\s*version, prepared for a "
-                       r"(?P<program_compilation_host>\S*)\s*computer\)"),
-                    SM(r""),
-                    SM(startReStr="\.Copyright \(C\) 1998-[0-9]{4} ABINIT group .",
+                       r"(?P<program_compilation_host>\S*)\s*computer\)\s*$"),
+                    SM(r"\s*$"),
+                    SM(startReStr="\.Copyright \(C\) 1998-[0-9]{4} ABINIT group .\s*$",
                        coverageIgnore=True,
-                       subMatchers=[SM(r"\s*ABINIT comes with ABSOLUTELY NO WARRANTY.",
+                       subMatchers=[SM(r"\s*ABINIT comes with ABSOLUTELY NO WARRANTY.\s*$",
                                        coverageIgnore=True),
-                                    SM(r"\s*It is free software, and you are welcome to redistribute it",
+                                    SM(r"\s*It is free software, and you are welcome to redistribute it\s*$",
                                        coverageIgnore=True),
-                                    SM(r"\s*under certain conditions \(GNU General Public License,",
+                                    SM(r"\s*under certain conditions \(GNU General Public License,\s*$",
                                        coverageIgnore=True),
-                                    SM(r"\s*see ~abinit/COPYING or http://www.gnu.org/copyleft/gpl.txt\).",
+                                    SM(r"\s*see ~abinit/COPYING or http://www.gnu.org/copyleft/gpl.txt\).\s*$",
                                        coverageIgnore=True),
-                                    SM(r"\s*ABINIT is a project of the Universite Catholique de Louvain,",
+                                    SM(r"\s*ABINIT is a project of the Universite Catholique de Louvain,\s*$",
                                        coverageIgnore=True),
                                     SM(r"\s*Corning Inc. and other collaborators, see "
-                                       r"~abinit/doc/developers/contributors.txt .",
+                                       r"~abinit/doc/developers/contributors.txt .\s*$",
                                        coverageIgnore=True),
-                                    SM(r"\s*Please read ~abinit/doc/users/acknowledgments.html for suggested",
+                                    SM(r"\s*Please read ~abinit/doc/users/acknowledgments.html for suggested\s*$",
                                        coverageIgnore=True),
-                                    SM(r"\s*acknowledgments of the ABINIT effort.",
+                                    SM(r"\s*acknowledgments of the ABINIT effort.\s*$",
                                        coverageIgnore=True),
-                                    SM(r"\s*For more information, see http://www.abinit.org .",
+                                    SM(r"\s*For more information, see http://www.abinit.org .\s*$",
                                        coverageIgnore=True)
                                     ]
                        ),
-                    SM(r"\.Starting date : (?P<x_abinit_start_date>[0-9a-zA-Z ]*)\."),
-                    SM(r"^- \( at\s*(?P<x_abinit_start_time>[0-9a-z]*)\s*\)"),
-                    SM(r"^- input  file\s*->\s*(?P<x_abinit_input_file>\S*)"),
-                    SM(r"^- output file\s*->\s*(?P<x_abinit_output_file>\S*)"),
-                    SM(r"^- root for input  files\s*->\s*(?P<x_abinit_input_files_root>\S*)"),
-                    SM(r"^- root for output files\s*->\s*(?P<x_abinit_output_files_root>\S*)")
+                    SM(r"\.Starting date : (?P<x_abinit_start_date>[0-9a-zA-Z ]*)\.\s*$"),
+                    SM(r"^- \( at\s*(?P<x_abinit_start_time>[0-9a-z]*)\s*\)\s*$"),
+                    SM(r"^- input  file\s*->\s*(?P<x_abinit_input_file>\S*)\s*$"),
+                    SM(r"^- output file\s*->\s*(?P<x_abinit_output_file>\S*)\s*$"),
+                    SM(r"^- root for input  files\s*->\s*(?P<x_abinit_input_files_root>\S*)\s*$"),
+                    SM(r"^- root for output files\s*->\s*(?P<x_abinit_output_files_root>\S*)\s*$")
                     ],
        )
 
@@ -394,9 +394,9 @@ timerMatcher = \
        required=True,
        forwardMatch=True,
        coverageIgnore=True,
-       subMatchers=[SM(r"- Total cpu\s*time\s*\(\S*\):\s*(?P<x_abinit_total_cpu_time>[0-9.]+)\s*\S*\s*\S*"),
-                    SM(r"- Total wall clock time\s*\(\S*\):\s*(?P<x_abinit_total_wallclock_time>[0-9.]+)\s*\S*\s*\S*"),
-                    SM(r"-",
+       subMatchers=[SM(r"- Total cpu\s*time\s*\(\S*\):\s*(?P<x_abinit_total_cpu_time>[0-9.]+)\s*\S*\s*\S*\s*$"),
+                    SM(r"- Total wall clock time\s*\(\S*\):\s*(?P<x_abinit_total_wallclock_time>[0-9.]+)\s*\S*\s*\S*\s*$"),
+                    SM(r"-\s*$",
                        coverageIgnore=True),
                     SM(name="Profiling",
                        startReStr="- For major independent code sections, cpu and wall times \(sec\),",
@@ -431,7 +431,7 @@ timerMatcher = \
 memestimationMatcher = \
     SM(name='MemEstimation',
        startReStr=r"\s*(Symmetries|DATASET\s*[0-9]{1,4})\s*: space group \S* \S* \S* \(\#\S*\);\s*Bravais\s*\S*\s*\("
-                  r"[a-zA-Z- .]*\)$",
+                  r"[a-zA-Z- .]*\)\s*$",
        endReStr=r"={80}",
        repeats=True,
        subMatchers=[SM(r"={80}",
@@ -491,7 +491,7 @@ inputVarsMatcher = \
 
 SCFCycleMatcher = \
     SM(name='SCFCycle',
-       startReStr=r"\s*iter\s*Etot\(hartree\)\s*deltaE\(h\)(\s*\w+)*",
+       startReStr=r"\s*iter\s*Etot\(hartree\)\s*deltaE\(h\)(\s*\w+)*\s*$",
        repeats=True,
        sections=['section_single_configuration_calculation'],
        subMatchers=[SM(r"\s*ETOT\s*[0-9]+\s*(?P<energy_total_scf_iteration__hartree>[-+0-9.eEdD]+)\s*"
@@ -499,49 +499,49 @@ SCFCycleMatcher = \
                        sections=["section_scf_iteration"],
                        repeats=True),
                     SM(r"\s*At SCF step\s*(?P<number_of_scf_iterations>[0-9]+)\s*(, etot is converged :|, forces are "
-                       r"converged : |vres2\s*=\s*[-+0-9.eEdD]+\s*<\s*tolvrs=\s*[-+0-9.eEdD]+\s*=>converged.)"),
+                       r"converged : |vres2\s*=\s*[-+0-9.eEdD]+\s*<\s*tolvrs=\s*[-+0-9.eEdD]+\s*=>converged.)\s*$"),
                     SM(r"\s*for the second time, (max diff in force|diff in etot)=\s*[-+0-9.eEdD]+\s*<\s*tol(dfe|dff)="
-                       r"\s*[-+0-9.eEdD]+"),
-                    SM(r"\s*>{9}\s*Etotal=\s*(?P<energy_total__hartree>[-+0-9.eEdD]+)")
+                       r"\s*[-+0-9.eEdD]+\s*$"),
+                    SM(r"\s*>{9}\s*Etotal=\s*(?P<energy_total__hartree>[-+0-9.eEdD]+)\s*$")
                     ]
        )
 
 
 datasetHeaderMatcher = \
     SM(name='DatasetHeader',
-       startReStr=r"={2}\s*DATASET\s*[0-9]+\s*={66}",
-       endReStr=r"={80}",
+       startReStr=r"={2}\s*DATASET\s*[0-9]+\s*={66}\s*$",
+       endReStr=r"={80}\s*$",
        forwardMatch=True,
        repeats=False,
        sections=['x_abinit_section_dataset_header'],
-       subMatchers=[SM(r"={2}\s*DATASET\s*(?P<x_abinit_dataset_number>[0-9]+)\s*={66}"),
-                    SM(r"-\s*nproc\s*=\s*[0-9]+"),
+       subMatchers=[SM(r"={2}\s*DATASET\s*(?P<x_abinit_dataset_number>[0-9]+)\s*={66}\s*$"),
+                    SM(r"-\s*nproc\s*=\s*[0-9]+\s*$"),
                     SM(name="XC",
                        startReStr=r"\s*Exchange-correlation functional for the present dataset will be:",
                        required=False,
                        coverageIgnore=True,
-                       subMatchers=[SM(r"(\s*\S*)+\s*-\s*ixc=(?P<x_abinit_var_ixc>[-0-9]+)"),
+                       subMatchers=[SM(r"(\s*\S*)+\s*-\s*ixc=(?P<x_abinit_var_ixc>[-0-9]+)\s*$"),
                                     SM(r"\s*Citation for XC functional:",
                                        coverageIgnore=True)
                                     ]
                        ),
                     SM(r"\s*Real\(R\)\+Recip\(G\) space primitive vectors, cartesian coordinates \(Bohr,Bohr\^-1\):",
                        coverageIgnore=True),
-                    SM(r"\s*R\(1\)=(?P<x_abinit_vprim_1>(\s*[0-9.-]+){3})\s*G\(1\)=(\s*[0-9.-]+){3}"),
-                    SM(r"\s*R\(2\)=(?P<x_abinit_vprim_2>(\s*[0-9.-]+){3})\s*G\(2\)=(\s*[0-9.-]+){3}"),
-                    SM(r"\s*R\(3\)=(?P<x_abinit_vprim_3>(\s*[0-9.-]+){3})\s*G\(3\)=(\s*[0-9.-]+){3}"),
-                    SM(r"\s*Unit cell volume ucvol=\s*[-+0-9.eEdD]*\s*bohr\^3"),
-                    SM(r"\s*Angles \(23,13,12\)=(\s*[-+0-9.eEdD]*){3}\s*degrees"),
-                    SM(r"\s*getcut: wavevector=(\s*[0-9.]*){3}\s*ngfft=(\s*[0-9]*){3}"),
-                    SM(r"\s*ecut\(hartree\)=\s*[0-9.]*\s*=> boxcut\(ratio\)=\s*[0-9.]*"),
+                    SM(r"\s*R\(1\)=(?P<x_abinit_vprim_1>(\s*[0-9.-]+){3})\s*G\(1\)=(\s*[0-9.-]+){3}\s*$"),
+                    SM(r"\s*R\(2\)=(?P<x_abinit_vprim_2>(\s*[0-9.-]+){3})\s*G\(2\)=(\s*[0-9.-]+){3}\s*$"),
+                    SM(r"\s*R\(3\)=(?P<x_abinit_vprim_3>(\s*[0-9.-]+){3})\s*G\(3\)=(\s*[0-9.-]+){3}\s*$"),
+                    SM(r"\s*Unit cell volume ucvol=\s*[-+0-9.eEdD]*\s*bohr\^3\s*$"),
+                    SM(r"\s*Angles \(23,13,12\)=(\s*[-+0-9.eEdD]*){3}\s*degrees\s*$"),
+                    SM(r"\s*getcut: wavevector=(\s*[0-9.]*){3}\s*ngfft=(\s*[0-9]*){3}\s*$"),
+                    SM(r"\s*ecut\(hartree\)=\s*[0-9.]*\s*=> boxcut\(ratio\)=\s*[0-9.]*\s*$"),
                     SM(r"--- Pseudopotential description ------------------------------------------------",
                        coverageIgnore=True),
                     SM(name="pseudopotential",
-                       startReStr=r"-\s*pspini: atom type\s*[0-9]+\s*psp file is \S*",
+                       startReStr=r"-\s*pspini: atom type\s*[0-9]+\s*psp file is \S*\s*$",
                        forwardMatch=True,
                        repeats=True,
                        coverageIgnore=True,
-                       subMatchers=[SM(r"-\s*pspini: atom type\s*[0-9]+\s*psp file is\s*\S*"),
+                       subMatchers=[SM(r"-\s*pspini: atom type\s*[0-9]+\s*psp file is\s*\S*\s*$"),
                                     SM(r"-\s*pspatm: opening atomic psp file\s*\S*",
                                        coverageIgnore=True)
                                     ]
@@ -559,7 +559,7 @@ datasetHeaderMatcher = \
 
 datasetMatcher = \
     SM(name='Dataset',
-       startReStr=r"={2}\s*DATASET\s*[0-9]+\s*={66}",
+       startReStr=r"={2}\s*DATASET\s*[0-9]+\s*={66}\s*$",
        forwardMatch=True,
        repeats=True,
        sections=['x_abinit_section_dataset'],
@@ -623,10 +623,10 @@ footerMatcher = \
 
 mainFileDescription = \
     SM(name='root',
-       startReStr="",
+       startReStr="\s*$",
        required=True,
        subMatchers=[SM(name='NewRun',
-                       startReStr="",
+                       startReStr="\s*$",
                        endReStr=r"\s*Overall time at end \(sec\) : cpu=\s*\S*\s*wall=\s*\S*",
                        required=True,
                        fixedStartValues={'program_name': 'ABINIT', 'program_basis_set_type': 'plane waves'},
