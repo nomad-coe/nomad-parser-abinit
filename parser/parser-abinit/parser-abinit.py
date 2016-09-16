@@ -150,18 +150,17 @@ class ABINITContext(object):
 
         backend.addValue("spacegroup_3D_number", self.input["x_abinit_var_spgroup"][-1])
 
-    def onOpen_x_abinit_section_dataset(self, backend, gIndex, section):
+    def onOpen_x_abinit_section_dataset_header(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is opened.
         """
-        self.methodGIndex = backend.openSection("section_method")
         self.inputGIndex = backend.openSection("x_abinit_section_input")
 
-    def onClose_x_abinit_section_dataset(self, backend, gIndex, section):
+    def onClose_x_abinit_section_dataset_header(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is closed.
         """
         self.current_dataset = section["x_abinit_dataset_number"][-1]
-
         backend.closeSection("x_abinit_section_input", self.inputGIndex)
+        self.methodGIndex = backend.openSection("section_method")
         backend.closeSection("section_method", self.methodGIndex)
 
     def onOpen_section_single_configuration_calculation(self, backend, gIndex, section):
@@ -495,12 +494,12 @@ SCFCycleMatcher = \
        )
 
 
-datasetMatcher = \
+datasetHeaderMatcher = \
     SM(name='Dataset',
        startReStr=r"={2}\s*DATASET\s*[0-9]+\s*={66}",
        forwardMatch=True,
-       repeats=True,
-       sections=['section_system', 'x_abinit_section_dataset'],
+       repeats=False,
+       sections=['x_abinit_section_dataset_header'],
        subMatchers=[SM(r"={2}\s*DATASET\s*(?P<x_abinit_dataset_number>[0-9]+)\s*={66}"),
                     SM(r"-\s*nproc\s*=\s*[0-9]+"),
                     SM(name="defaultXC",
@@ -531,7 +530,17 @@ datasetMatcher = \
                                     ]
                        ),
                     SM(r"-{80}",
-                       coverageIgnore=True),
+                       coverageIgnore=True)
+                    ]
+       )
+
+datasetMatcher = \
+    SM(name='Dataset',
+       startReStr=r"={2}\s*DATASET\s*[0-9]+\s*={66}",
+       forwardMatch=True,
+       repeats=True,
+       sections=['section_system', 'x_abinit_section_dataset'],
+       subMatchers=[datasetHeaderMatcher,
                     SCFCycleMatcher
                     ]
        )
