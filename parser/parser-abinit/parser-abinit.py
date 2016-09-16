@@ -38,6 +38,7 @@ class ABINITContext(object):
         self.abinitVars = None
         self.input = None
         self.inputGIndex = None
+        self.methodGIndex = None
 
     def initialize_values(self):
         """allows to reset values if the same superContext is used to parse different files"""
@@ -49,6 +50,7 @@ class ABINITContext(object):
         self.abinitVars = {key: {} for key in [0, 1]}
         self.inputGIndex = None
         self.input = None
+        self.methodGIndex = None
 
     def startedParsing(self, filename, parser):
         """called when parsing starts"""
@@ -94,6 +96,72 @@ class ABINITContext(object):
             backend.addValue("smearing_width",
                              unit_conversion.convert_unit(self.input["x_abinit_var_tsmear"][-1], 'hartree'))
 
+        ABINIT_NATIVE_IXC = {'0':  [{}],
+                             '1':  [{'XC_functional_name': 'LDA_XC_TETER93'}],
+                             '2':  [{'XC_functional_name': 'LDA_X'},
+                                    {'XC_functional_name': 'LDA_C_PZ'}],
+                             # 3 - LDA, old Teter rational polynomial parametrization (4/91)
+                             '4':  [{'XC_functional_name': 'LDA_X'},
+                                    {'XC_functional_name': 'LDA_C_WIGNER'}],
+                             '5':  [{'XC_functional_name': 'LDA_X'},
+                                    {'XC_functional_name': 'LDA_C_HL'}],
+                             '6':  [{'XC_functional_name': 'LDA_X'},
+                                    {'XC_functional_name': 'LDA_C_XALPHA'}],
+                             '7':  [{'XC_functional_name': 'LDA_X'},
+                                    {'XC_functional_name': 'LDA_C_PW'}],
+                             # 8 - x-only part of the Perdew-Wang 92 functional
+                             # 9 - x- and RPA correlation part of the Perdew-Wang 92 functional
+                             # 10 - non-existent
+                             '11': [{'XC_functional_name': 'GGA_X_PBE'},
+                                    {'XC_functional_name': 'GGA_C_PBE'}],
+                             '12': [{'XC_functional_name': 'GGA_X_PBE'}],
+                             '13': [{'XC_functional_name': 'GGA_X_LB'},
+                                    {'XC_functional_name': 'LDA_C_PW'}],
+                             '14': [{'XC_functional_name': 'GGA_X_PBE_R'},
+                                    {'XC_functional_name': '?'}],
+                             '15': [{'XC_functional_name': 'GGA_X_RPBE'},
+                                    {'XC_functional_name': '?'}],
+                             '16': [{'XC_functional_name': 'GGA_XC_HCTH_93'}],
+                             '17': [{'XC_functional_name': 'GGA_XC_HCTH_120'}],
+                             '18': [{'XC_functional_name': 'GGA_X_B88'},
+                                    {'XC_functional_name': 'GGA_C_LYP'}],
+                             '19': [{'XC_functional_name': 'GGA_X_B88'},
+                                    {'XC_functional_name': 'GGA_C_P86'}],
+                             # 20 - Fermi-Amaldi xc ( -1/N Hartree energy, where N is the number of electrons per cell;
+                             #      G=0 is not taken into account however), for TDDFT tests.
+                             # 21 - same as 20, except that the xc-kernel is the LDA (ixc=1) one, for TDDFT tests.
+                             # 22 - same as 20, except that the xc-kernel is the Burke-Petersilka-Gross hybrid, for
+                             #      TDDFT tests.
+                             '23': [{'XC_functional_name': 'GGA_X_WC'},
+                                    {'XC_functional_name': '?'}],
+                             '24': [{'XC_functional_name': 'GGA_X_C09X'},
+                                    {'XC_functional_name': '?'}],
+                             # 25 - non-existent
+                             '26': [{'XC_functional_name': 'GGA_XC_HCTH_147'}],
+                             '27': [{'XC_functional_name': 'GGA_XC_HCTH_407'}],
+                             '28': [{'XC_functional_name': 'GGA_X_OPTX'},
+                                    {'XC_functional_name': 'GGA_C_LYP'}],
+                             # 40 - Hartree-Fock
+                             '41': [{'XC_functional_name': 'HYB_GGA_XC_PBEH'}],
+                             '42': [{'XC_functional_name': 'HYB_GGA_XC_PBE0_13'}]
+                             }
+
+        if int(self.input["x_abinit_var_ixc"][-1]) >= 0:
+            xc_functionals = ABINIT_NATIVE_IXC[str(self.input["x_abinit_var_ixc"][-1])]
+        else:
+            # TODO Libxc functionals
+            xc_functionals = None
+
+        if xc_functionals is not None:
+            for xc_functional in xc_functionals:
+                gIndex = backend.openSection('section_XC_functionals')
+                for key, value in sorted(xc_functional.items()):
+                    if isinstance(value, (list, dict)):
+                        backend.addValue(key, value)
+                    else:
+                        backend.addValue(key, value)
+                backend.closeSection('section_XC_functionals', gIndex)
+
     def onClose_section_system(self, backend, gIndex, section):
         """Trigger called when section_system is closed.
         """
@@ -127,6 +195,7 @@ class ABINITContext(object):
     def onOpen_x_abinit_section_dataset(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is opened.
         """
+        self.methodGIndex = backend.openSection("section_method")
         self.inputGIndex = backend.openSection("x_abinit_section_input")
 
     def onClose_x_abinit_section_dataset(self, backend, gIndex, section):
@@ -135,6 +204,12 @@ class ABINITContext(object):
         self.current_dataset = section["x_abinit_dataset_number"][-1]
 
         backend.closeSection("x_abinit_section_input", self.inputGIndex)
+        backend.closeSection("section_method", self.methodGIndex)
+
+    def onOpen_section_single_configuration_calculation(self, backend, gIndex, section):
+        """Trigger called when section_single_configuration_calculation is opened.
+        """
+        backend.addValue("single_configuration_to_calculation_method_ref", self.methodGIndex)
 
     def onOpen_x_abinit_section_input(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_input is opened.
@@ -170,6 +245,8 @@ class ABINITContext(object):
             dataset_vars["x_abinit_var_nkpt"] = 1
         if dataset_vars["x_abinit_var_occopt"] is None:
             dataset_vars["x_abinit_var_occopt"] = 1
+        if dataset_vars["x_abinit_var_ixc"] is None:
+            dataset_vars["x_abinit_var_ixc"] = 1
 
         # Fix nband
         if len(dataset_vars["x_abinit_var_nband"].split()) == 1:
@@ -201,6 +278,12 @@ class ABINITContext(object):
                 nband = sum([int(x) for x in dataset_vars["x_abinit_var_nband"].split()])
                 array = np.array(varvalue.split(), dtype=parser_backend.numpyDtypeForDtypeStr(meta_info.dtypeStr))
                 backend.addArrayValues(varname, array.reshape([nband]))
+            elif varname == "x_abinit_var_ixc":
+                # If no value of ixc is given in the input file, Abinit will try to choose it from the pseudopotentials.
+                # Since the pseudopotentials are read while performing the calculations for a given dataset, ixc might
+                # have been already read and stored. In that case we ignore the value stored in dataset_vars.
+                if section["x_abinit_var_ixc"] is None:
+                    backend.addValue(varname, dataset_vars["x_abinit_var_ixc"])
 
             elif len(meta_info.shape) == 0:
                 # This is a simple scalar
@@ -459,14 +542,14 @@ datasetMatcher = \
        startReStr=r"={2}\s*DATASET\s*[0-9]+\s*={66}",
        forwardMatch=True,
        repeats=True,
-       sections=['section_method', 'section_system', 'x_abinit_section_dataset'],
+       sections=['section_system', 'x_abinit_section_dataset'],
        subMatchers=[SM(r"={2}\s*DATASET\s*(?P<x_abinit_dataset_number>[0-9]+)\s*={66}"),
                     SM(r"-\s*nproc\s*=\s*[0-9]+"),
                     SM(name="defaultXC",
                        startReStr=r"\s*Exchange-correlation functional for the present dataset will be:",
                        required=False,
                        coverageIgnore=True,
-                       subMatchers=[SM(r"(\s*\S*)+\s*-\s*ixc=(?P<x_abinit_default_xc>[-0-9]+)"),
+                       subMatchers=[SM(r"(\s*\S*)+\s*-\s*ixc=(?P<x_abinit_var_ixc>[-0-9]+)"),
                                     SM(r"\s*Citation for XC functional:",
                                        coverageIgnore=True)
                                     ]
@@ -563,7 +646,7 @@ mainFileDescription = \
                                     inputVarsMatcher,
                                     SM(r"={80}", coverageIgnore=True),
                                     datasetMatcher,
-                                    SM(r"== END DATASET\(S\) ==============================================================", coverageIgnore=True),
+                                    SM(r"== END DATASET\(S\) ={62}", coverageIgnore=True),
                                     SM(r"={80}", coverageIgnore=True, weak=True),
                                     outputVarsMatcher,
                                     timerMatcher,
