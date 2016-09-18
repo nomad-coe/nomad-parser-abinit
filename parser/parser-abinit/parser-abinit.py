@@ -38,7 +38,7 @@ class ABINITContext(object):
         self.current_dataset = None
         self.abinitVars = None
         self.input = None
-        self.simulation_cell = None
+        self.initial_simulation_cell = None
         self.inputGIndex = None
         self.methodGIndex = None
         self.systemGIndex = None
@@ -52,7 +52,7 @@ class ABINITContext(object):
         #    does not specify the dataset number
         self.abinitVars = {key: {} for key in [0, 1]}
         self.input = None
-        self.simulation_cell = None
+        self.initial_simulation_cell = None
         self.inputGIndex = None
         self.methodGIndex = None
         self.systemGIndex = None
@@ -154,6 +154,16 @@ class ABINITContext(object):
 
         backend.addValue("spacegroup_3D_number", self.input["x_abinit_var_spgroup"][-1])
 
+        vprim = backend.arrayForMetaInfo("simulation_cell", [3, 3])
+        for axis in [1, 2, 3]:
+            if section["x_abinit_vprim_%s"%axis] is None:
+                vprim[axis-1] = self.initial_simulation_cell[axis-1]
+            else:
+                vprim[axis-1] = section["x_abinit_vprim_%s"%axis][-1].split()
+            for component in range(3):
+                vprim[axis-1][component] = unit_conversion.convert_unit(vprim[axis-1][component], 'bohr')
+        backend.addArrayValues("simulation_cell", vprim)
+
     def onOpen_x_abinit_section_dataset_header(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is opened.
         """
@@ -167,9 +177,9 @@ class ABINITContext(object):
         self.methodGIndex = backend.openSection("section_method")
         backend.closeSection("section_method", self.methodGIndex)
 
-        self.simulation_cell = []
+        self.initial_simulation_cell = []
         for axis in [1, 2, 3]:
-            self.simulation_cell.append(section["x_abinit_vprim_%s"%axis][-1].split())
+            self.initial_simulation_cell.append(section["x_abinit_vprim_%s" % axis][-1].split())
 
     def onOpen_section_single_configuration_calculation(self, backend, gIndex, section):
         """Trigger called when section_single_configuration_calculation is opened.
@@ -178,7 +188,7 @@ class ABINITContext(object):
         backend.addValue("single_configuration_calculation_to_system_ref", self.systemGIndex)
         backend.addValue("single_configuration_to_calculation_method_ref", self.methodGIndex)
 
-    def onOClose_section_single_configuration_calculation(self, backend, gIndex, section):
+    def onClose_section_single_configuration_calculation(self, backend, gIndex, section):
         """Trigger called when section_single_configuration_calculation is closed.
         """
         backend.closeSection("section_system", self.systemGIndex)
