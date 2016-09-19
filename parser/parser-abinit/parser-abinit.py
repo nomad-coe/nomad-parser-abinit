@@ -193,7 +193,7 @@ class ABINITContext(object):
         """
         backend.closeSection("section_system", self.systemGIndex)
 
-        if section["x_abinit_energy_xc"][-1] is not None:
+        if section["x_abinit_energy_xc"] is not None:
             backend.addValue("energy_XC", unit_conversion.convert_unit(section["x_abinit_energy_xc"][-1], "hartree"))
 
     def onOpen_x_abinit_section_input(self, backend, gIndex, section):
@@ -508,6 +508,17 @@ SCFResultsMatcher = \
        required=False,
        subMatchers=[SM(r"\s*Mean square residual over all n,k,spin=\s*[-+0-9.eEdD]+\s*;\s*max=\s*[-+0-9.eEdD]+\s*$",
                        coverageIgnore=True),
+                    SM(startReStr=r"\s*(Total charge density|Spin up density|Spin down density|"
+                                  r"Magnetization \(spin up - spin down\)|"
+                                  r"Relative magnetization \(=zeta, between -1 and 1\))\s*(\[el/Bohr\^3\])?\s*$",
+                       coverageIgnore=True,
+                       repeats=True,
+                       subMatchers=[SM(r",(Next)?\s*(m|M)(axi|ini)mum=\s*[-+0-9.eEdD]+\s*at reduced coord."
+                                       r"(\s*[0-9.]+){3}\s*$",
+                                       repeats=True),
+                                    SM(r",\s*Integrated=\s*[-+0-9.eEdD]+\s*$"),
+                                    ]
+                       ),
                     SM(r"-{80}",
                        coverageIgnore=True),
                     SM(r"\s*Components of total free energy \(in Hartree\) :\s*$",
@@ -530,6 +541,7 @@ SCFResultsMatcher = \
                        coverageIgnore=True)
                     ]
        )
+
 
 SCFCycleMatcher = \
     SM(name='SCFCycle',
@@ -662,6 +674,7 @@ footerMatcher = \
                        coverageIgnore=True)
                     ]
        )
+
 
 mainFileDescription = \
     SM(name='root',
