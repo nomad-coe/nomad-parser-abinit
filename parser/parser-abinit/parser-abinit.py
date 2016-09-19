@@ -195,6 +195,10 @@ class ABINITContext(object):
 
         if section["x_abinit_energy_xc"] is not None:
             backend.addValue("energy_XC", unit_conversion.convert_unit(section["x_abinit_energy_xc"][-1], "hartree"))
+        if section["x_abinit_energy_kinetic"] is not None:
+            backend.addValue("electronic_kinetic_energy",
+                             unit_conversion.convert_unit(section["x_abinit_energy_kinetic"][-1], "hartree"))
+
 
         if section["x_abinit_atom_force"] is not None:
             atom_forces = backend.arrayForMetaInfo("atom_forces_raw", [self.input["x_abinit_var_natom"][-1],3])
