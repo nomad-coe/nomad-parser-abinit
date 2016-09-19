@@ -196,6 +196,15 @@ class ABINITContext(object):
         if section["x_abinit_energy_xc"] is not None:
             backend.addValue("energy_XC", unit_conversion.convert_unit(section["x_abinit_energy_xc"][-1], "hartree"))
 
+        if section["x_abinit_atom_force"] is not None:
+            atom_forces = backend.arrayForMetaInfo("atom_forces_raw", [self.input["x_abinit_var_natom"][-1],3])
+            n_atom = 0
+            for force_string in section["x_abinit_atom_force"]:
+                for dir in range(3):
+                    atom_forces[n_atom, dir] = force_string.split()[dir]
+                n_atom += 1
+            backend.addArrayValues("atom_forces_raw", atom_forces)
+
     def onOpen_x_abinit_section_input(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_input is opened.
         """
@@ -508,6 +517,18 @@ SCFResultsMatcher = \
        required=False,
        subMatchers=[SM(r"\s*Mean square residual over all n,k,spin=\s*[-+0-9.eEdD]+\s*;\s*max=\s*[-+0-9.eEdD]+\s*$",
                        coverageIgnore=True),
+                    SM(startReStr=r"\s*cartesian forces \(hartree/bohr\) at end:\s*$",
+                       subMatchers=[SM(r"\s*[0-9]+(?P<x_abinit_atom_force>(\s*[-+0-9.]+){3})\s*$",
+                                       repeats=True),
+                                    SM(r"\s*frms,max,avg=(\s*[-+0-9.eEdD]+){5}\s*h/b\s*$")
+                                    ]
+                       ),
+                    SM(startReStr=r"\s*cartesian forces \(eV/Angstrom\) at end:\s*$",
+                       subMatchers=[SM(r"\s*[0-9]+(\s*[-+0-9.]+){3}\s*$",
+                                       repeats=True),
+                                    SM(r"\s*frms,max,avg=(\s*[-+0-9.eEdD]+){5}\s*e/A\s*$")
+                                    ]
+                       ),
                     SM(startReStr=r"\s*(Total charge density|Spin up density|Spin down density|"
                                   r"Magnetization \(spin up - spin down\)|"
                                   r"Relative magnetization \(=zeta, between -1 and 1\))\s*(\[el/Bohr\^3\])?\s*$",
