@@ -193,6 +193,9 @@ class ABINITContext(object):
         """
         backend.closeSection("section_system", self.systemGIndex)
 
+        if section["x_abinit_energy_xc"][-1] is not None:
+            backend.addValue("energy_XC", unit_conversion.convert_unit(section["x_abinit_energy_xc"][-1], "hartree"))
+
     def onOpen_x_abinit_section_input(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_input is opened.
         """
@@ -499,6 +502,35 @@ inputVarsMatcher = \
        )
 
 
+SCFResultsMatcher = \
+    SM(name='SCFResults',
+       startReStr=r"\s*----iterations are completed or convergence reached----\s*$",
+       required=False,
+       subMatchers=[SM(r"\s*Mean square residual over all n,k,spin=\s*[-+0-9.eEdD]+\s*;\s*max=\s*[-+0-9.eEdD]+\s*$",
+                       coverageIgnore=True),
+                    SM(r"-{80}",
+                       coverageIgnore=True),
+                    SM(r"\s*Components of total free energy \(in Hartree\) :\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*Kinetic energy\s*=\s*(?P<x_abinit_energy_kinetic>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*Hartree energy\s*=\s*(?P<x_abinit_energy_hartree>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*XC energy\s*=\s*(?P<x_abinit_energy_xc>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*Ewald energy\s*=\s*(?P<x_abinit_energy_ewald>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*PspCore energy\s*=\s*(?P<x_abinit_energy_psp_core>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*Loc. psp. energy\s*=\s*(?P<x_abinit_energy_psp_local>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*NL   psp  energy\s*=\s*(?P<x_abinit_energy_psp_nonlocal>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*>{5}\s*Internal E=\s*(?P<x_abinit_energy_internal>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*-kT\*entropy\s*=\s*(?P<x_abinit_energy_ktentropy>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*>{9}\s*Etotal=\s*(?P<energy_total__hartree>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*Other information on the energy :\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*Total energy\(eV\)=\s*[-+0-9.eEdD]+\s*;\s*Band energy \(Ha\)=\s*"
+                       r"(?P<x_abinit_energy_band>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"-{80}",
+                       coverageIgnore=True)
+                    ]
+       )
+
 SCFCycleMatcher = \
     SM(name='SCFCycle',
        startReStr=r"\s*iter\s*Etot\(hartree\)\s*deltaE\(h\)(\s*\w+)*\s*$",
@@ -512,7 +544,7 @@ SCFCycleMatcher = \
                        r"converged : |vres2\s*=\s*[-+0-9.eEdD]+\s*<\s*tolvrs=\s*[-+0-9.eEdD]+\s*=>converged.)\s*$"),
                     SM(r"\s*for the second time, (max diff in force|diff in etot)=\s*[-+0-9.eEdD]+\s*<\s*tol(dfe|dff)="
                        r"\s*[-+0-9.eEdD]+\s*$"),
-                    SM(r"\s*>{9}\s*Etotal=\s*(?P<energy_total__hartree>[-+0-9.eEdD]+)\s*$")
+                    SCFResultsMatcher
                     ]
        )
 
