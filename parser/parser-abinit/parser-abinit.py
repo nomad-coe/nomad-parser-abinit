@@ -201,9 +201,16 @@ class ABINITContext(object):
 
 
         if section["x_abinit_atom_force"] is not None:
+            atom_forces_list = section["x_abinit_atom_force"]
+        elif section["x_abinit_atom_force_final"] is not None:
+            atom_forces_list = section["x_abinit_atom_force_final"]
+        else:
+            atom_forces_list = None
+
+        if atom_forces_list is not None:
             atom_forces = backend.arrayForMetaInfo("atom_forces_raw", [self.input["x_abinit_var_natom"][-1],3])
             n_atom = 0
-            for force_string in section["x_abinit_atom_force"]:
+            for force_string in atom_forces_list:
                 for dir in range(3):
                     atom_forces[n_atom, dir] = unit_conversion.convert_unit(float(force_string.split()[dir]), "forceAu")
                 n_atom += 1
@@ -522,7 +529,7 @@ SCFResultsMatcher = \
        subMatchers=[SM(r"\s*Mean square residual over all n,k,spin=\s*[-+0-9.eEdD]+\s*;\s*max=\s*[-+0-9.eEdD]+\s*$",
                        coverageIgnore=True),
                     SM(startReStr=r"\s*cartesian forces \(hartree/bohr\) at end:\s*$",
-                       subMatchers=[SM(r"\s*[0-9]+(?P<x_abinit_atom_force>(\s*[-+0-9.]+){3})\s*$",
+                       subMatchers=[SM(r"\s*[0-9]+(?P<x_abinit_atom_force_final>(\s*[-+0-9.]+){3})\s*$",
                                        repeats=True),
                                     SM(r"\s*frms,max,avg=(\s*[-+0-9.eEdD]+){5}\s*h/b\s*$")
                                     ]
@@ -567,6 +574,22 @@ SCFResultsMatcher = \
                     ]
        )
 
+SCFOutput = \
+    SM(name='SCFOutput',
+       startReStr=r"-{3}OUTPUT-{71}\s*$",
+       required=False,
+       subMatchers=[SM(startReStr=r"\s*Cartesian forces \(fcart\) \[Ha/bohr\]; max,rms=(\s*[-+0-9.eEdD]+){2}\s*"
+                                  r"\(free atoms\)\s*$",
+                       subMatchers=[SM(r"\s*(?P<x_abinit_atom_force>(\s*[-+0-9.eEdD]+){3})\s*$",
+                                       repeats=True)]
+                       ),
+                    SM(startReStr=r"\s*Reduced forces \(fred\)\s*",
+                       subMatchers=[SM(r"\s*(\s*[-+0-9.eEdD]+){3}\s*$",
+                                       repeats=True)]
+                       )
+                    ]
+       )
+
 
 SCFCycleMatcher = \
     SM(name='SCFCycle',
@@ -581,6 +604,7 @@ SCFCycleMatcher = \
                        r"converged : |vres2\s*=\s*[-+0-9.eEdD]+\s*<\s*tolvrs=\s*[-+0-9.eEdD]+\s*=>converged.)\s*$"),
                     SM(r"\s*for the second time, (max diff in force|diff in etot)=\s*[-+0-9.eEdD]+\s*<\s*tol(dfe|dff)="
                        r"\s*[-+0-9.eEdD]+\s*$"),
+                    SCFOutput,
                     SCFResultsMatcher
                     ]
        )
