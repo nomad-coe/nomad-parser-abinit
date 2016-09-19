@@ -201,7 +201,7 @@ class ABINITContext(object):
             n_atom = 0
             for force_string in section["x_abinit_atom_force"]:
                 for dir in range(3):
-                    atom_forces[n_atom, dir] = force_string.split()[dir]
+                    atom_forces[n_atom, dir] = unit_conversion.convert_unit(float(force_string.split()[dir]), "forceAu")
                 n_atom += 1
             backend.addArrayValues("atom_forces_raw", atom_forces)
 
