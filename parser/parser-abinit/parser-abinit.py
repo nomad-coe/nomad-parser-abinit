@@ -102,9 +102,9 @@ class ABINITContext(object):
     def onClose_section_sampling_method(self, backend, gIndex, section):
         """Trigger called when section_sampling_method is closed.
         """
-        if self.input["x_abinit_var_ionmov"][-1] is not None:
+        if self.input["x_abinit_var_ionmov"] is not None:
             ionmov = self.input["x_abinit_var_ionmov"][-1]
-            if ionmov in [2, 3, 4, 5, 7, 10, 11, 20, ]:
+            if ionmov in [2, 3, 4, 5, 7, 10, 11, 20]:
                 sampling_method = "geometry_optimization"
             elif ionmov in [6, 8, 12, 13, 14, 23]:
                 sampling_method = "molecular_dynamics"
