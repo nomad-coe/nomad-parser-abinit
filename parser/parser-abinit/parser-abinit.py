@@ -74,6 +74,57 @@ class ABINITContext(object):
                                                      section["x_abinit_start_time"][-1]), "%a %d %b %Y %Hh%M")
             backend.addValue("time_run_date_start", time.mktime(abi_time))
 
+    def onOpen_section_single_configuration_calculation(self, backend, gIndex, section):
+        """Trigger called when section_single_configuration_calculation is opened.
+        """
+        self.systemGIndex = backend.openSection("section_system")
+        backend.addValue("single_configuration_calculation_to_system_ref", self.systemGIndex)
+        backend.addValue("single_configuration_to_calculation_method_ref", self.methodGIndex)
+
+    def onClose_section_single_configuration_calculation(self, backend, gIndex, section):
+        """Trigger called when section_single_configuration_calculation is closed.
+        """
+        backend.closeSection("section_system", self.systemGIndex)
+
+        if section["x_abinit_energy_xc"] is not None:
+            backend.addValue("energy_XC", unit_conversion.convert_unit(section["x_abinit_energy_xc"][-1], "hartree"))
+        if section["x_abinit_energy_kinetic"] is not None:
+            backend.addValue("electronic_kinetic_energy",
+                             unit_conversion.convert_unit(section["x_abinit_energy_kinetic"][-1], "hartree"))
+
+        if section["x_abinit_atom_force"] is not None:
+            atom_forces_list = section["x_abinit_atom_force"]
+        elif section["x_abinit_atom_force_final"] is not None:
+            atom_forces_list = section["x_abinit_atom_force_final"]
+        else:
+            atom_forces_list = None
+
+        if atom_forces_list is not None:
+            atom_forces = backend.arrayForMetaInfo("atom_forces_raw", [self.input["x_abinit_var_natom"][-1],3])
+            n_atom = 0
+            for force_string in atom_forces_list:
+                for dir in range(3):
+                    atom_forces[n_atom, dir] = unit_conversion.convert_unit(float(force_string.split()[dir]), "forceAu")
+                n_atom += 1
+            backend.addArrayValues("atom_forces_raw", atom_forces)
+
+    def onOpen_x_abinit_section_dataset_header(self, backend, gIndex, section):
+        """Trigger called when x_abinit_section_dataset is opened.
+        """
+        self.inputGIndex = backend.openSection("x_abinit_section_input")
+
+    def onClose_x_abinit_section_dataset_header(self, backend, gIndex, section):
+        """Trigger called when x_abinit_section_dataset is closed.
+        """
+        self.current_dataset = section["x_abinit_dataset_number"][-1]
+        backend.closeSection("x_abinit_section_input", self.inputGIndex)
+        self.methodGIndex = backend.openSection("section_method")
+        backend.closeSection("section_method", self.methodGIndex)
+
+        self.initial_simulation_cell = []
+        for axis in [1, 2, 3]:
+            self.initial_simulation_cell.append(section["x_abinit_vprim_%s" % axis][-1].split())
+
     def onClose_section_method(self, backend, gIndex, section):
         """Trigger called when section_method is closed.
         """
@@ -184,57 +235,6 @@ class ABINITContext(object):
             for component in range(3):
                 vprim[axis-1][component] = unit_conversion.convert_unit(vprim[axis-1][component], 'bohr')
         backend.addArrayValues("simulation_cell", vprim)
-
-    def onOpen_x_abinit_section_dataset_header(self, backend, gIndex, section):
-        """Trigger called when x_abinit_section_dataset is opened.
-        """
-        self.inputGIndex = backend.openSection("x_abinit_section_input")
-
-    def onClose_x_abinit_section_dataset_header(self, backend, gIndex, section):
-        """Trigger called when x_abinit_section_dataset is closed.
-        """
-        self.current_dataset = section["x_abinit_dataset_number"][-1]
-        backend.closeSection("x_abinit_section_input", self.inputGIndex)
-        self.methodGIndex = backend.openSection("section_method")
-        backend.closeSection("section_method", self.methodGIndex)
-
-        self.initial_simulation_cell = []
-        for axis in [1, 2, 3]:
-            self.initial_simulation_cell.append(section["x_abinit_vprim_%s" % axis][-1].split())
-
-    def onOpen_section_single_configuration_calculation(self, backend, gIndex, section):
-        """Trigger called when section_single_configuration_calculation is opened.
-        """
-        self.systemGIndex = backend.openSection("section_system")
-        backend.addValue("single_configuration_calculation_to_system_ref", self.systemGIndex)
-        backend.addValue("single_configuration_to_calculation_method_ref", self.methodGIndex)
-
-    def onClose_section_single_configuration_calculation(self, backend, gIndex, section):
-        """Trigger called when section_single_configuration_calculation is closed.
-        """
-        backend.closeSection("section_system", self.systemGIndex)
-
-        if section["x_abinit_energy_xc"] is not None:
-            backend.addValue("energy_XC", unit_conversion.convert_unit(section["x_abinit_energy_xc"][-1], "hartree"))
-        if section["x_abinit_energy_kinetic"] is not None:
-            backend.addValue("electronic_kinetic_energy",
-                             unit_conversion.convert_unit(section["x_abinit_energy_kinetic"][-1], "hartree"))
-
-        if section["x_abinit_atom_force"] is not None:
-            atom_forces_list = section["x_abinit_atom_force"]
-        elif section["x_abinit_atom_force_final"] is not None:
-            atom_forces_list = section["x_abinit_atom_force_final"]
-        else:
-            atom_forces_list = None
-
-        if atom_forces_list is not None:
-            atom_forces = backend.arrayForMetaInfo("atom_forces_raw", [self.input["x_abinit_var_natom"][-1],3])
-            n_atom = 0
-            for force_string in atom_forces_list:
-                for dir in range(3):
-                    atom_forces[n_atom, dir] = unit_conversion.convert_unit(float(force_string.split()[dir]), "forceAu")
-                n_atom += 1
-            backend.addArrayValues("atom_forces_raw", atom_forces)
 
     def onOpen_x_abinit_section_input(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_input is opened.
