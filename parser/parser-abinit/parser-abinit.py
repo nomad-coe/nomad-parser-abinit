@@ -154,6 +154,53 @@ class ABINITContext(object):
                 n_atom += 1
             backend.addArrayValues("atom_forces_raw", atom_forces)
 
+    def onClose_section_eigenvalues(self, backend, gIndex, section):
+        """Trigger called when section_eigenvalues is closed.
+        """
+        backend.addValue("eigenvalues_kind", "normal")
+
+        nkpt = int(self.input["x_abinit_var_nkpt"][-1])
+        nspin = int(self.input["x_abinit_var_nsppol"][-1])
+        nband = int(self.input["x_abinit_var_nband"][-1][0][0])
+        for ispin in range(nspin):
+            for ikpt in range(nkpt):
+                if self.input["x_abinit_var_nband"][-1][ikpt][ispin] != nband:
+                    nband = 0
+                    break
+
+        if nband == 0:
+            logger.warn("Number of bands in this calculation is k-point dependent.")
+        else:
+            if section["x_abinit_eigenvalues"] is not None:
+                backend.addValue("number_of_eigenvalues", nband)
+                if len(section["x_abinit_eigenvalues"]) == 1:
+                    abi_eigenvalues = section["x_abinit_eigenvalues"][0]
+                else:
+                    abi_eigenvalues = " ".join(section["x_abinit_eigenvalues"])
+                eigenvalues = np.array([unit_conversion.convert_unit(float(x), "hartree") for x in abi_eigenvalues.split()])
+                backend.addArrayValues("eigenvalues_values", eigenvalues.reshape([nspin, nkpt, nband]))
+            else:
+                logger.warn("Eigenvalues are not available.")
+
+            if section["x_abinit_occupations"] is not None:
+                if len(section["x_abinit_occupations"]) == 1:
+                    abi_occs = section["x_abinit_occupations"][0]
+                else:
+                    abi_occs = " ".join(section["x_abinit_occupations"])
+                occupations = np.array([float(x) for x in abi_occs.split()])
+                backend.addArrayValues("eigenvalues_occupation", occupations.reshape([nspin, nkpt, nband]))
+            else:
+                backend.addArrayValues("eigenvalues_occupation", self.input["x_abinit_var_occ"][-1].reshape([nspin, nkpt, nband]))
+
+        backend.addValue("number_of_eigenvalues_kpoints", nkpt)
+        if section["x_abinit_kpt"] is not None:
+            abi_kpoints = []
+            for ikpt in range(nkpt):
+                abi_kpoints.append([float(x) for x in section["x_abinit_kpt"][ikpt].split()])
+            backend.addArrayValues("eigenvalues_kpoints", np.array(abi_kpoints))
+        elif self.input["x_abinit_var_kpt"] is not None:
+            backend.addArrayValues("eigenvalues_kpoints", self.input["x_abinit_var_kpt"][-1])
+
     def onOpen_x_abinit_section_dataset_header(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is opened.
         """
@@ -588,6 +635,27 @@ inputVarsMatcher = \
        )
 
 
+eigenvaluesBlockMatcher = \
+    SM(name="EigenvaluesBlock",
+       startReStr=r"\s*Eigenvalues \(hartree\) for nkpt=\s*[0-9]+\s*k points(, SPIN (UP|DOWN))?:\s*$",
+       repeats=True,
+       subMatchers=[SM(startReStr=r"\s*kpt#\s*[0-9]+, nband=\s*[0-9]+, wtk=\s*[0-9.]+\s*, kpt=(\s*[-+0-9.eEdD]+){3}"
+                                  r"\s*\(reduced coord\)\s*$",
+                       forwardMatch=True,
+                       repeats=True,
+                       subMatchers=[SM(r"\s*kpt#\s*[0-9]+, nband=\s*[0-9]+, wtk=\s*(?P<x_abinit_wtk>[0-9.]+)\s*, "
+                                       r"kpt=(?P<x_abinit_kpt>(\s*[-+0-9.eEdD]+){3})\s*\(reduced coord\)\s*$"),
+                                    SM(r"(?P<x_abinit_eigenvalues>(\s+[-+0-9.eEdD]+)+)\s*$",
+                                       repeats=True),
+                                    SM(r"\s*occupation numbers for kpt#\s+[0-9]+\s*$",
+                                       required=False),
+                                    SM(r"(?P<x_abinit_occupations>(\s+[-+0-9.eEdD]+)+)\s*$",
+                                       repeats=True, required=False)
+                                    ]
+                       ),
+                    ]
+       )
+
 SCFResultsMatcher = \
     SM(name='SCFResults',
        startReStr=r"\s*----iterations are completed or convergence reached----\s*$",
@@ -610,6 +678,12 @@ SCFResultsMatcher = \
                                        repeats=True),
                                     SM(r"\s*frms,max,avg=(\s*[-+0-9.eEdD]+){5}\s*e/A\s*$")
                                     ]
+                       ),
+                    SM(name="Eigenvalues",
+                       startReStr=r"\s*Eigenvalues \(hartree\) for nkpt=\s*[0-9]+\s*k points(, SPIN (UP|DOWN))?:\s*$",
+                       forwardMatch=True,
+                       sections=["section_eigenvalues"],
+                       subMatchers=[eigenvaluesBlockMatcher]
                        ),
                     SM(startReStr=r"\s*(Total charge density|Spin up density|Spin down density|"
                                   r"Magnetization \(spin up - spin down\)|"
