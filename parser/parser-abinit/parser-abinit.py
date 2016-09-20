@@ -140,13 +140,34 @@ class ABINITContext(object):
             atom_labels[atom_index] = atom_types[self.input["x_abinit_var_typat"][-1][atom_index] - 1]
         backend.addArrayValues("atom_labels", atom_labels)
 
-        if self.input["x_abinit_var_xcart"] is None:
-            if self.input["x_abinit_var_natom"][0] == 1:
-                backend.addArrayValues("atom_positions", np.array([[0, 0, 0]]))
+
+        if section["x_abinit_atom_xcart"] is not None:
+            atom_xcart_list = section["x_abinit_atom_xcart"]
+            xcart_unit = "bohr"
+        elif section["x_abinit_atom_xcart_final"] is not None:
+            atom_xcart_list = section["x_abinit_atom_xcart_final"]
+            xcart_unit = "angstrom"
+        else:
+            atom_xcart_list = None
+        n_atom = self.input["x_abinit_var_natom"][-1]
+        if atom_xcart_list is not None:
+            atom_xcart = backend.arrayForMetaInfo("atom_positions", [n_atom,3])
+            for iatom in range(n_atom):
+                for dir in range(3):
+                    atom_xcart[iatom, dir] = float(atom_xcart_list[iatom].split()[dir])
+        else:
+            xcart_unit = "bohr"
+            if self.input["x_abinit_var_xcart"] is not None:
+                atom_xcart = self.input["x_abinit_var_xcart"][-1]
+            elif n_atom == 1:
+                atom_xcart = np.array([[0, 0, 0]])
             else:
                 logger.error("Positions of atoms is not available")
-        else:
-            backend.addArrayValues("atom_positions", self.input["x_abinit_var_xcart"][-1])
+        for iatom in range(n_atom):
+            for dir in range(3):
+                atom_xcart[iatom, dir] = unit_conversion.convert_unit(atom_xcart[iatom, dir], xcart_unit)
+        backend.addArrayValues("atom_positions", atom_xcart)
+
 
         backend.addArrayValues("configuration_periodic_dimensions", np.array([True, True, True]))
 
@@ -198,7 +219,6 @@ class ABINITContext(object):
         if section["x_abinit_energy_kinetic"] is not None:
             backend.addValue("electronic_kinetic_energy",
                              unit_conversion.convert_unit(section["x_abinit_energy_kinetic"][-1], "hartree"))
-
 
         if section["x_abinit_atom_force"] is not None:
             atom_forces_list = section["x_abinit_atom_force"]
@@ -528,6 +548,11 @@ SCFResultsMatcher = \
        required=False,
        subMatchers=[SM(r"\s*Mean square residual over all n,k,spin=\s*[-+0-9.eEdD]+\s*;\s*max=\s*[-+0-9.eEdD]+\s*$",
                        coverageIgnore=True),
+                    SM(startReStr=r"\s*cartesian coordinates \(angstrom\) at end:\s*$",
+                       subMatchers=[SM(r"\s*[0-9]+(?P<x_abinit_atom_xcart_final>(\s*[-+0-9.]+){3})\s*$",
+                                       repeats=True)
+                                    ]
+                       ),
                     SM(startReStr=r"\s*cartesian forces \(hartree/bohr\) at end:\s*$",
                        subMatchers=[SM(r"\s*[0-9]+(?P<x_abinit_atom_force_final>(\s*[-+0-9.]+){3})\s*$",
                                        repeats=True),
@@ -578,7 +603,15 @@ SCFOutput = \
     SM(name='SCFOutput',
        startReStr=r"-{3}OUTPUT-{71}\s*$",
        required=False,
-       subMatchers=[SM(startReStr=r"\s*Cartesian forces \(fcart\) \[Ha/bohr\]; max,rms=(\s*[-+0-9.eEdD]+){2}\s*"
+       subMatchers=[SM(startReStr=r"\s*Cartesian coordinates \(xcart\) \[bohr\]\s*$",
+                       subMatchers=[SM(r"\s*(?P<x_abinit_atom_xcart>(\s*[-+0-9.eEdD]+){3})\s*$",
+                                       repeats=True)]
+                       ),
+                    SM(startReStr=r"\s*Reduced coordinates \(xred\)\s*$",
+                       subMatchers=[SM(r"\s*(\s*[-+0-9.eEdD]+){3}\s*$",
+                                       repeats=True)]
+                       ),
+                    SM(startReStr=r"\s*Cartesian forces \(fcart\) \[Ha/bohr\]; max,rms=(\s*[-+0-9.eEdD]+){2}\s*"
                                   r"\(free atoms\)\s*$",
                        subMatchers=[SM(r"\s*(?P<x_abinit_atom_force>(\s*[-+0-9.eEdD]+){3})\s*$",
                                        repeats=True)]
