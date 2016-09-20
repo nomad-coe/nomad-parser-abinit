@@ -42,6 +42,7 @@ class ABINITContext(object):
         self.inputGIndex = None
         self.methodGIndex = None
         self.systemGIndex = None
+        self.samplingGIndex = None
         self.frameSequence = []
 
     def initialize_values(self):
@@ -57,6 +58,7 @@ class ABINITContext(object):
         self.inputGIndex = None
         self.methodGIndex = None
         self.systemGIndex = None
+        self.samplingGIndex = None
         self.frameSequence = []
 
     def startedParsing(self, filename, parser):
@@ -76,6 +78,11 @@ class ABINITContext(object):
                                                      section["x_abinit_start_time"][-1]), "%a %d %b %Y %Hh%M")
             backend.addValue("time_run_date_start", time.mktime(abi_time))
 
+    def onOpen_x_abinit_section_dataset(self, backend, gIndex, section):
+        """Trigger called when x_abinit_section_dataset is opened.
+        """
+        self.samplingGIndex = backend.openSection("section_sampling_method")
+
     def onClose_x_abinit_section_dataset(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is closed.
         """
@@ -83,12 +90,14 @@ class ABINITContext(object):
             frameGIndex = backend.openSection("section_frame_sequence")
             backend.closeSection("section_frame_sequence", frameGIndex)
         self.frameSequence = []
+        backend.closeSection("section_sampling_method", self.samplingGIndex)
 
     def onClose_section_frame_sequence(self, backend, gIndex, section):
         """Trigger called when section_framce_sequence is closed.
         """
         backend.addValue("number_of_frames_in_sequence", len(self.frameSequence))
         backend.addValue("frame_sequence_local_frames_ref", self.frameSequence)
+        backend.addValue("frame_sequence_to_sampling_ref", self.samplingGIndex)
 
     def onOpen_section_single_configuration_calculation(self, backend, gIndex, section):
         """Trigger called when section_single_configuration_calculation is opened.
