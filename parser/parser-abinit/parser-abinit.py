@@ -42,6 +42,7 @@ class ABINITContext(object):
         self.inputGIndex = None
         self.methodGIndex = None
         self.systemGIndex = None
+        self.frameSequence = []
 
     def initialize_values(self):
         """allows to reset values if the same superContext is used to parse different files"""
@@ -56,6 +57,7 @@ class ABINITContext(object):
         self.inputGIndex = None
         self.methodGIndex = None
         self.systemGIndex = None
+        self.frameSequence = []
 
     def startedParsing(self, filename, parser):
         """called when parsing starts"""
@@ -74,12 +76,27 @@ class ABINITContext(object):
                                                      section["x_abinit_start_time"][-1]), "%a %d %b %Y %Hh%M")
             backend.addValue("time_run_date_start", time.mktime(abi_time))
 
+    def onClose_x_abinit_section_dataset(self, backend, gIndex, section):
+        """Trigger called when x_abinit_section_dataset is closed.
+        """
+        if len(self.frameSequence) > 1:
+            frameGIndex = backend.openSection("section_frame_sequence")
+            backend.closeSection("section_frame_sequence", frameGIndex)
+        self.frameSequence = []
+
+    def onClose_section_frame_sequence(self, backend, gIndex, section):
+        """Trigger called when section_framce_sequence is closed.
+        """
+        backend.addValue("number_of_frames_in_sequence", len(self.frameSequence))
+        backend.addValue("frame_sequence_local_frames_ref", self.frameSequence)
+
     def onOpen_section_single_configuration_calculation(self, backend, gIndex, section):
         """Trigger called when section_single_configuration_calculation is opened.
         """
         self.systemGIndex = backend.openSection("section_system")
         backend.addValue("single_configuration_calculation_to_system_ref", self.systemGIndex)
         backend.addValue("single_configuration_to_calculation_method_ref", self.methodGIndex)
+        self.frameSequence.append(gIndex)
 
     def onClose_section_single_configuration_calculation(self, backend, gIndex, section):
         """Trigger called when section_single_configuration_calculation is closed.
