@@ -401,7 +401,7 @@ class ABINITContext(object):
                 # Since the pseudopotentials are read while performing the calculations for a given dataset, ixc might
                 # have been already read and stored. In that case we ignore the value stored in dataset_vars.
                 if section["x_abinit_var_ixc"] is None:
-                    backend.addValue(varname, dataset_vars["x_abinit_var_ixc"])
+                    backend.addValue(varname, backend.convertScalarStringValue(varname, varvalue))
 
             elif len(meta_info.shape) == 0:
                 # This is a simple scalar
