@@ -96,7 +96,7 @@ class ABINITContext(object):
         """Trigger called when section_framce_sequence is closed.
         """
         backend.addValue("number_of_frames_in_sequence", len(self.frameSequence))
-        backend.addValue("frame_sequence_local_frames_ref", self.frameSequence)
+        backend.addArrayValues("frame_sequence_local_frames_ref", np.array(self.frameSequence))
         backend.addValue("frame_sequence_to_sampling_ref", self.samplingGIndex)
 
     def onClose_section_sampling_method(self, backend, gIndex, section):
