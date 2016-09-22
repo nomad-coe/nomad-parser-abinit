@@ -14,6 +14,11 @@ import os
 import logging
 import time
 
+try:
+    basestring
+except NameError:
+    basestring = str
+
 logger = logging.getLogger("nomad.ABINITParser")
 
 parserInfo = {
@@ -412,7 +417,7 @@ class ABINITContext(object):
                 array = np.array(varvalue.split(), dtype=parser_backend.numpyDtypeForDtypeStr(meta_info.dtypeStr))
                 shape = []
                 for dim in meta_info.shape:
-                    if isinstance(dim, str):
+                    if isinstance(dim, basestring):
                         # Replace all instances of Abinit variables that appear in the dimension
                         # with their actual values.
                         dim_regex = '(?P<abi_var>x_abinit_var_\w+)'
