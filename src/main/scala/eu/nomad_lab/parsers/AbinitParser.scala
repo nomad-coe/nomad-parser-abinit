@@ -21,12 +21,13 @@ object AbinitParser extends SimpleExternalParserGenerator(
       )) :: Nil
   ),
   mainFileTypes = Seq("text/.*"),
-  mainFileRe = """\s*ABINIT\s*""".r,
+  mainFileRe = """^\n\.Version\s*[0-9.]*\s*of ABINIT\s*""".r,
   cmd = Seq(DefaultPythonInterpreter.pythonExe(), "${envDir}/parsers/abinit/parser/parser-abinit/parser-abinit.py",
     "--uri", "${mainFileUri}", "${mainFilePath}"),
   resList = Seq(
     "parser-abinit/setup_paths.py",
     "parser-abinit/AbinitXC.py",
+    "parser-abinit/AbinitDosParser",
     "parser-abinit/parser-abinit.py",
     "nomad_meta_info/public.nomadmetainfo.json",
     "nomad_meta_info/common.nomadmetainfo.json",
