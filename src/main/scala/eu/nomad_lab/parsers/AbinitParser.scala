@@ -27,7 +27,6 @@ object AbinitParser extends SimpleExternalParserGenerator(
   resList = Seq(
     "parser-abinit/setup_paths.py",
     "parser-abinit/AbinitXC.py",
-    "parser-abinit/AbinitDosParser",
     "parser-abinit/parser-abinit.py",
     "nomad_meta_info/public.nomadmetainfo.json",
     "nomad_meta_info/common.nomadmetainfo.json",
