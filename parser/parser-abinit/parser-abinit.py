@@ -162,8 +162,6 @@ class ABINITContext(object):
     def onClose_section_eigenvalues(self, backend, gIndex, section):
         """Trigger called when section_eigenvalues is closed.
         """
-        backend.addValue("eigenvalues_kind", "normal")
-
         nkpt = int(self.input["x_abinit_var_nkpt"][-1])
         nspin = int(self.input["x_abinit_var_nsppol"][-1])
         nband = int(self.input["x_abinit_var_nband"][-1][0][0])
@@ -177,34 +175,47 @@ class ABINITContext(object):
             logger.warn("Number of bands in this calculation is k-point dependent.")
         else:
             if section["x_abinit_eigenvalues"] is not None:
-                backend.addValue("number_of_eigenvalues", nband)
                 if len(section["x_abinit_eigenvalues"]) == 1:
-                    abi_eigenvalues = section["x_abinit_eigenvalues"][0]
+                    ev_string = section["x_abinit_eigenvalues"][0]
                 else:
-                    abi_eigenvalues = " ".join(section["x_abinit_eigenvalues"])
-                eigenvalues = np.array([unit_conversion.convert_unit(float(x), "hartree") for x in abi_eigenvalues.split()])
-                backend.addArrayValues("eigenvalues_values", eigenvalues.reshape([nspin, nkpt, nband]))
+                    ev_string = " ".join(section["x_abinit_eigenvalues"])
+                abi_eigenvalues = ev_string.split()
             else:
+                abi_eigenvalues = []
                 logger.warn("Eigenvalues are not available.")
+            eigenvalues = np.array([unit_conversion.convert_unit(float(x), "hartree") for x in abi_eigenvalues])
 
             if section["x_abinit_occupations"] is not None:
                 if len(section["x_abinit_occupations"]) == 1:
-                    abi_occs = section["x_abinit_occupations"][0]
+                    occs_string = section["x_abinit_occupations"][0]
                 else:
-                    abi_occs = " ".join(section["x_abinit_occupations"])
-                occupations = np.array([float(x) for x in abi_occs.split()])
-                backend.addArrayValues("eigenvalues_occupation", occupations.reshape([nspin, nkpt, nband]))
+                    occs_string = " ".join(section["x_abinit_occupations"])
+                abi_occs = occs_string.split()
+            elif self.input["x_abinit_var_occ"][-1] is not None:
+                abi_occs = self.input["x_abinit_var_occ"][-1]
             else:
-                backend.addArrayValues("eigenvalues_occupation", self.input["x_abinit_var_occ"][-1].reshape([nspin, nkpt, nband]))
+                abi_occs = []
+                logger.warn("Occupations are not available.")
+            occupations = np.array([float(x) for x in abi_occs])
 
-        backend.addValue("number_of_eigenvalues_kpoints", nkpt)
-        if section["x_abinit_kpt"] is not None:
             abi_kpoints = []
-            for ikpt in range(nkpt):
-                abi_kpoints.append([float(x) for x in section["x_abinit_kpt"][ikpt].split()])
-            backend.addArrayValues("eigenvalues_kpoints", np.array(abi_kpoints))
-        elif self.input["x_abinit_var_kpt"] is not None:
-            backend.addArrayValues("eigenvalues_kpoints", self.input["x_abinit_var_kpt"][-1])
+            if section["x_abinit_kpt"] is not None:
+                for kpt in section["x_abinit_kpt"]:
+                    abi_kpoints.append([float(x) for x in kpt.split()])
+            elif self.input["x_abinit_var_kpt"] is not None:
+                for ikpt in range(nkpt):
+                    abi_kpoints.append([float(x) for x in self.input["x_abinit_var_kpt"][-1][ikpt]])
+            else:
+                logger.warn("K-points are not available.")
+            kpoints = np.array(abi_kpoints)
+
+            if len(kpoints) == nkpt and len(eigenvalues) == nband*nspin*nkpt and len(occupations) == nband * nspin * nkpt:
+                backend.addValue("eigenvalues_kind", "normal")
+                backend.addValue("number_of_eigenvalues", nband)
+                backend.addValue("number_of_eigenvalues_kpoints", nkpt)
+                backend.addArrayValues("eigenvalues_kpoints", kpoints)
+                backend.addArrayValues("eigenvalues_values", eigenvalues.reshape([nspin, nkpt, nband]))
+                backend.addArrayValues("eigenvalues_occupation", occupations.reshape([nspin, nkpt, nband]))
 
     def onOpen_x_abinit_section_dataset_header(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is opened.
@@ -428,6 +439,7 @@ class ABINITContext(object):
                     shape.append(dim)
                 backend.addArrayValues(varname, array.reshape(shape))
 
+
     def onClose_x_abinit_section_var(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_var is closed.
         """
@@ -436,13 +448,17 @@ class ABINITContext(object):
             dataset = 0
         else:
             dataset = section["x_abinit_vardtset"][0]
+
         if dataset not in self.abinitVars.keys():
             self.abinitVars[dataset] = {}
         if len(section["x_abinit_varvalue"]) == 1:
             self.abinitVars[dataset]["x_abinit_var_" + section["x_abinit_varname"][0]] = section["x_abinit_varvalue"][0]
         else:
-            self.abinitVars[dataset]["x_abinit_var_" + section["x_abinit_varname"][0]] = \
-                " ".join(section["x_abinit_varvalue"])
+            # We have an array of values. We will only set the variable if we have all the values, that is, if the array
+            # was not truncated.
+            if section["x_abinit_vartruncation"] is None:
+                self.abinitVars[dataset]["x_abinit_var_" + section["x_abinit_varname"][0]] = \
+                    " ".join(section["x_abinit_varvalue"])
 
 
 def build_abinit_vars_submatcher(is_output=False):
@@ -489,7 +505,10 @@ def build_abinit_vars_submatcher(is_output=False):
                                                r"\s+)(?P<x_abinit_varvalue>(%s\s*)+)\s*(Hartree|Bohr)?\s*$"
                                                % (varname, abi_vars[varname])),
                                             SM(r"\s{20,}(?P<x_abinit_varvalue>(%s\s*)+)\s*$" % (abi_vars[varname]),
-                                               repeats=True)
+                                               repeats=True),
+                                            SM(r"\s{20,}outvar(_i_n|s)\s*: Printing only first\s*"
+                                               r"(?P<x_abinit_vartruncation>[0-9]*)\s*[-a-zA-Z]*.\s*$",
+                                               required=False)
                                             ]
                                )
                             )
