@@ -137,6 +137,14 @@ class ABINITContext(object):
         """
         backend.closeSection("section_system", self.systemGIndex)
 
+        converged = False
+        if section["x_abinit_single_configuration_calculation_converged"] is not None:
+            if section["x_abinit_single_configuration_calculation_converged"][-1] == "is converged" or \
+               section["x_abinit_single_configuration_calculation_converged"][-1] == "converged" or \
+               section["x_abinit_single_configuration_calculation_converged"][-1] == "are converged":
+                converged = True
+        backend.addValue("single_configuration_calculation_converged", converged)
+
         if section["x_abinit_energy_xc"] is not None:
             backend.addValue("energy_XC", unit_conversion.convert_unit(section["x_abinit_energy_xc"][-1], "hartree"))
         if section["x_abinit_energy_kinetic"] is not None:
@@ -686,6 +694,26 @@ SCFResultsMatcher = \
        required=False,
        subMatchers=[SM(r"\s*Mean square residual over all n,k,spin=\s*[-+0-9.eEdD]+\s*;\s*max=\s*[-+0-9.eEdD]+\s*$",
                        coverageIgnore=True),
+                    SM(startReStr=r"\s*([-+0-9.]+\s*){3}\s*[0-9]?\s*[-+0-9eEdD.]+\s*kpt; spin; max resid\(k\); each band:\s*$",
+                       coverageIgnore=True,
+                       repeats=True,
+                       subMatchers=[SM(r"\s*([-+0-9eEdD.]+\s*)+\s*$",
+                                       coverageIgnore=True)
+                                    ]
+                       ),
+                    SM(startReStr=r"\s*reduced coordinates \(array xred\) for\s*[0-9]+\s*atoms\s*$",
+                       coverageIgnore=True,
+                       subMatchers=[SM(r"\s*([-+0-9.]+\s*){3}\s*$",
+                                       coverageIgnore=True, repeats=True)
+                                    ]
+                       ),
+                    SM(startReStr=r"\s*rms dE/dt=\s*[-+0-9.eEdD]+\s*; max dE/dt=\s*[-+0-9.eEdD]+\s*; dE/dt below "
+                                  r"\(all hartree\)\s*$",
+                       coverageIgnore=True,
+                       subMatchers=[SM(r"\s*[0-9]+\s*([-+0-9.]+\s*){3}\s*$",
+                                       coverageIgnore=True, repeats=True)
+                                    ]
+                       ),
                     SM(startReStr=r"\s*cartesian coordinates \(angstrom\) at end:\s*$",
                        subMatchers=[SM(r"\s*[0-9]+(?P<x_abinit_atom_xcart_final>(\s*[-+0-9.]+){3})\s*$",
                                        repeats=True)
@@ -703,6 +731,14 @@ SCFResultsMatcher = \
                                     SM(r"\s*frms,max,avg=(\s*[-+0-9.eEdD]+){5}\s*e/A\s*$")
                                     ]
                        ),
+                    SM(r"\s*length scales=(\s*[0-9.]+){3}\s*bohr\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*=(\s*[0-9.]+){3}\s*angstroms\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*prteigrs : about to open file\s*(?P<x_abinit_eig_filename>\S*)\s*$",
+                       required=False),
+                    SM(r"\s*Fermi \(or HOMO\) energy \(hartree\) =\s*(?P<energy_reference_fermi__hartree>[-+0-9.]+)\s*"
+                       r"Average Vxc \(hartree\)=\s*[-+0-9.]+\s*$"),
                     SM(name="Eigenvalues",
                        startReStr=r"\s*Eigenvalues \(hartree\) for nkpt=\s*[0-9]+\s*k points(, SPIN (UP|DOWN))?:\s*$",
                        forwardMatch=True,
@@ -777,11 +813,15 @@ SCFCycleMatcher = \
                        r"(?P<energy_change_scf_iteration__hartree>[-+0-9.eEdD]+)(\s*[-+0-9.eEdD]*)*",
                        sections=["section_scf_iteration"],
                        repeats=True),
-                    SM(r"\s*At SCF step\s*(?P<number_of_scf_iterations>[0-9]+)\s*(, etot is converged :|, forces are "
-                       r"converged : |vres2\s*=\s*[-+0-9.eEdD]+\s*<\s*tolvrs=\s*[-+0-9.eEdD]+\s*=>converged.)\s*$"),
+                    SM(r"\s*At SCF step\s*(?P<number_of_scf_iterations>[0-9]+)\s*"
+                       r"(, etot|forces|vres2\s*=\s*[-+0-9.eEdD]+\s*<\s*tolvrs=\s*[-+0-9.eEdD]+\s*=>)\s*"
+                       r"(?P<x_abinit_single_configuration_calculation_converged>(is converged|are converged|converged))"
+                       r"\s*(:|.)\s*$"),
                     SM(r"\s*for the second time, (max diff in force|diff in etot)=\s*[-+0-9.eEdD]+\s*<\s*tol(dfe|dff)="
                        r"\s*[-+0-9.eEdD]+\s*$"),
                     SCFOutput,
+                    SM(r"={80}\s*$",
+                       coverageIgnore=True),
                     SCFResultsMatcher
                     ]
        )
@@ -802,6 +842,8 @@ datasetHeaderMatcher = \
                        coverageIgnore=True,
                        subMatchers=[SM(r"(\s*\S*)+\s*-\s*ixc=(?P<x_abinit_var_ixc>[-0-9]+)\s*$"),
                                     SM(r"\s*Citation for XC functional:",
+                                       coverageIgnore=True),
+                                    SM(r"\s*((\S*.\s*)+\S*,)+\s*\S*\s*[0-9]+,\s*[0-9]+\s*\([0-9]+\)\s*$",
                                        coverageIgnore=True)
                                     ]
                        ),
