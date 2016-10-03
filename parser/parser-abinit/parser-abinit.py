@@ -48,6 +48,7 @@ class ABINITContext(object):
         self.methodGIndex = None
         self.systemGIndex = None
         self.samplingGIndex = None
+        self.basisGIndex = None
         self.frameSequence = []
 
     def initialize_values(self):
@@ -64,6 +65,7 @@ class ABINITContext(object):
         self.methodGIndex = None
         self.systemGIndex = None
         self.samplingGIndex = None
+        self.basisGIndex = None
         self.frameSequence = []
 
     def startedParsing(self, filename, parser):
@@ -235,6 +237,16 @@ class ABINITContext(object):
         """
         self.current_dataset = section["x_abinit_dataset_number"][-1]
         backend.closeSection("x_abinit_section_input", self.inputGIndex)
+
+        self.basisGIndex = backend.openSection("section_basis_set_cell_dependent")
+        backend.addValue("basis_set_cell_dependent_kind", "plane_waves")
+        if self.input["x_abinit_var_ecut"] is not None:
+            backend.addValue("basis_set_planewave_cutoff",
+                             unit_conversion.convert_unit(self.input["x_abinit_var_ecut"][-1], 'hartree'))
+        backend.addValue("basis_set_cell_dependent_name",
+                         "PW_%s"%(unit_conversion.convert_unit(self.input["x_abinit_var_ecut"][-1], 'hartree', 'rydberg')))
+        backend.closeSection("section_basis_set_cell_dependent", self.basisGIndex)
+
         self.methodGIndex = backend.openSection("section_method")
         backend.closeSection("section_method", self.methodGIndex)
 
@@ -268,6 +280,11 @@ class ABINITContext(object):
         if self.input["x_abinit_var_tsmear"] is not None:
             backend.addValue("smearing_width",
                              unit_conversion.convert_unit(self.input["x_abinit_var_tsmear"][-1], 'hartree'))
+
+        gIndex = backend.openSection("section_method_basis_set")
+        backend.addValue("method_basis_set_kind", "wavefunction")
+        backend.addValue("mapping_section_method_basis_set_cell_associated", self.basisGIndex)
+        backend.closeSection("section_method_basis_set", gIndex)
 
         backend.addValue("electronic_structure_method", "DFT")
         ixc = int(self.input["x_abinit_var_ixc"][-1])
