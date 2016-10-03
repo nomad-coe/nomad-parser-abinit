@@ -941,7 +941,9 @@ datasetMatcher = \
        repeats=True,
        sections=['x_abinit_section_dataset'],
        subMatchers=[datasetHeaderMatcher,
-                    SCFCycleMatcher
+                    SCFCycleMatcher,
+                    SM(r"={80}",
+                       coverageIgnore=True, required=False, weak=True)
                     ]
        )
 
