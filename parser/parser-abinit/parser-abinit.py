@@ -257,6 +257,7 @@ class ABINITContext(object):
     def onClose_section_method(self, backend, gIndex, section):
         """Trigger called when section_method is closed.
         """
+        backend.addValue("stress_tensor_method", "analytic")
         backend.addValue("number_of_spin_channels", self.input["x_abinit_var_nsppol"][-1])
         backend.addValue("scf_max_iteration", self.input["x_abinit_var_nstep"][-1])
         if self.input["x_abinit_var_toldfe"] is not None:
@@ -464,6 +465,16 @@ class ABINITContext(object):
                     shape.append(dim)
                 backend.addArrayValues(varname, array.reshape(shape))
 
+    def onClose_x_abinit_section_stress_tensor(self, backend, gIndex, section):
+        """Trigger called when x_abinit_section_stress_tensor is closed.
+        """
+        xx = unit_conversion.convert_unit(section["x_abinit_stress_tensor_xx"][-1], "hartree/bohr^3")
+        yy = unit_conversion.convert_unit(section["x_abinit_stress_tensor_yy"][-1], "hartree/bohr^3")
+        zz = unit_conversion.convert_unit(section["x_abinit_stress_tensor_zz"][-1], "hartree/bohr^3")
+        zy = unit_conversion.convert_unit(section["x_abinit_stress_tensor_zy"][-1], "hartree/bohr^3")
+        zx = unit_conversion.convert_unit(section["x_abinit_stress_tensor_zx"][-1], "hartree/bohr^3")
+        yx = unit_conversion.convert_unit(section["x_abinit_stress_tensor_yx"][-1], "hartree/bohr^3")
+        backend.addArrayValues("stress_tensor", np.array([[xx, yx, zx], [yx, yy, zy], [zx, zy, zz]]))
 
     def onClose_x_abinit_section_var(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_var is closed.
@@ -792,6 +803,22 @@ SCFResultsMatcher = \
                     SM(r"\s*Total energy\(eV\)=\s*[-+0-9.eEdD]+\s*;\s*Band energy \(Ha\)=\s*"
                        r"(?P<x_abinit_energy_band>[-+0-9.eEdD]+)\s*$"),
                     SM(r"-{80}",
+                       coverageIgnore=True),
+                    SM(r"\s*Cartesian components of stress tensor \(hartree/bohr\^3\)\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*sigma\(1 1\)=\s*[-+0-9.eEdD]+\s*sigma\(3 2\)=\s*[-+0-9.eEdD]+\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*sigma\(2 2\)=\s*[-+0-9.eEdD]+\s*sigma\(3 1\)=\s*[-+0-9.eEdD]+\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*sigma\(3 3\)=\s*[-+0-9.eEdD]+\s*sigma\(2 1\)=\s*[-+0-9.eEdD]+\s*$",
+                       coverageIgnore=True),
+                    SM(r"-Cartesian components of stress tensor \(GPa\)\s*\[Pressure=\s*[-+0-9.eEdD]+\s*GPa]\s*$",
+                       coverageIgnore=True),
+                    SM(r"- sigma\(1 1\)=\s*[-+0-9.eEdD]+\s*sigma\(3 2\)=\s*[-+0-9.eEdD]+\s*$",
+                       coverageIgnore=True),
+                    SM(r"- sigma\(2 2\)=\s*[-+0-9.eEdD]+\s*sigma\(3 1\)=\s*[-+0-9.eEdD]+\s*$",
+                       coverageIgnore=True),
+                    SM(r"- sigma\(3 3\)=\s*[-+0-9.eEdD]+\s*sigma\(2 1\)=\s*[-+0-9.eEdD]+\s*$",
                        coverageIgnore=True)
                     ]
        )
@@ -831,12 +858,23 @@ SCFCycleMatcher = \
                        sections=["section_scf_iteration"],
                        repeats=True),
                     SM(r"\s*At SCF step\s*(?P<number_of_scf_iterations>[0-9]+)\s*"
-                       r"(, etot|forces|vres2\s*=\s*[-+0-9.eEdD]+\s*<\s*tolvrs=\s*[-+0-9.eEdD]+\s*=>)\s*"
+                       r"(, etot|, forces|vres2\s*=\s*[-+0-9.eEdD]+\s*<\s*tolvrs=\s*[-+0-9.eEdD]+\s*=>)\s*"
                        r"(?P<x_abinit_single_configuration_calculation_converged>(is converged|are converged|converged))"
                        r"\s*(:|.)\s*$"),
                     SM(r"\s*for the second time, (max diff in force|diff in etot)=\s*[-+0-9.eEdD]+\s*<\s*tol(dfe|dff)="
                        r"\s*[-+0-9.eEdD]+\s*$"),
                     SCFOutput,
+                    SM(startReStr=r"\s*Cartesian components of stress tensor \(hartree/bohr\^3\)\s*$",
+                       coverageIgnore=True,
+                       sections=["x_abinit_section_stress_tensor"],
+                       subMatchers=[SM(r"\s*sigma\(1 1\)=\s*(?P<x_abinit_stress_tensor_xx>[-+0-9.eEdD]+)"
+                                       r"\s*sigma\(3 2\)=\s*(?P<x_abinit_stress_tensor_zy>[-+0-9.eEdD]+)\s*$"),
+                                    SM(r"\s*sigma\(2 2\)=\s*(?P<x_abinit_stress_tensor_yy>[-+0-9.eEdD]+)"
+                                       r"\s*sigma\(3 1\)=\s*(?P<x_abinit_stress_tensor_zx>[-+0-9.eEdD]+)\s*$"),
+                                    SM(r"\s*sigma\(3 3\)=\s*(?P<x_abinit_stress_tensor_zz>[-+0-9.eEdD]+)"
+                                       r"\s*sigma\(2 1\)=\s*(?P<x_abinit_stress_tensor_yx>[-+0-9.eEdD]+)\s*$")
+                                    ]
+                       ),
                     SM(r"={80}\s*$",
                        coverageIgnore=True),
                     SCFResultsMatcher
