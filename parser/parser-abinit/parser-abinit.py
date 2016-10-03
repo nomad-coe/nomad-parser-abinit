@@ -863,7 +863,6 @@ SCFCycleMatcher = \
                        r"\s*(:|.)\s*$"),
                     SM(r"\s*for the second time, (max diff in force|diff in etot)=\s*[-+0-9.eEdD]+\s*<\s*tol(dfe|dff)="
                        r"\s*[-+0-9.eEdD]+\s*$"),
-                    SCFOutput,
                     SM(startReStr=r"\s*Cartesian components of stress tensor \(hartree/bohr\^3\)\s*$",
                        coverageIgnore=True,
                        sections=["x_abinit_section_stress_tensor"],
@@ -875,8 +874,9 @@ SCFCycleMatcher = \
                                        r"\s*sigma\(2 1\)=\s*(?P<x_abinit_stress_tensor_yx>[-+0-9.eEdD]+)\s*$")
                                     ]
                        ),
+                    SCFOutput,
                     SM(r"={80}\s*$",
-                       coverageIgnore=True),
+                       coverageIgnore=True, required=False),
                     SCFResultsMatcher
                     ]
        )
@@ -918,11 +918,14 @@ datasetHeaderMatcher = \
                        forwardMatch=True,
                        repeats=True,
                        coverageIgnore=True,
-                       subMatchers=[SM(r"-\s*pspini: atom type\s*[0-9]+\s*psp file is\s*\S*\s*$"),
+                       subMatchers=[SM(r"-\s*pspini: atom type\s*\d+\s*psp file is\s*\S*\s*$"),
                                     SM(r"-\s*pspatm: opening atomic psp file\s*\S*",
-                                       coverageIgnore=True)
+                                       coverageIgnore=True),
+                                    SM(r"-\s*(\S+\s*)+\s*\w{3}\s*\w{3}\s*\d+\s*\d+:\d+:\d+\s*EDT\s*\d{4}\s*$")
                                     ]
                        ),
+                    SM(r"\s*[-+0-9.eEdD]+\s*ecore\*ucvol\(ha\*bohr\*\*3\)\s*$",
+                       coverageIgnore=True),
                     SM(r"-{80}",
                        coverageIgnore=True),
                     SM(r"P newkpt: treating\s*[0-9]+\s*bands with npw=\s*[0-9]+\s*for ikpt=\s*[0-9]+\s*by node\s*[0-9]+",
@@ -941,8 +944,14 @@ datasetMatcher = \
        repeats=True,
        sections=['x_abinit_section_dataset'],
        subMatchers=[datasetHeaderMatcher,
+                    SM("===\s*\[ionmov=\s*\d+\]\s*\S*\s*method\s*\(forces,Tot energy\)\s*$",
+                       required=False, coverageIgnore=True),
+                    SM(r"={80}\s*$",
+                       coverageIgnore=True, required=False, weak=True),
                     SCFCycleMatcher,
-                    SM(r"={80}",
+                    SM(r"==( END DATASET\(S\) |={16})={62}\s*$",
+                       coverageIgnore=True),
+                    SM(r"={80}\s*$",
                        coverageIgnore=True, required=False, weak=True)
                     ]
        )
@@ -1016,8 +1025,6 @@ mainFileDescription = \
                                     inputVarsMatcher,
                                     SM(r"={80}", coverageIgnore=True),
                                     datasetMatcher,
-                                    SM(r"== END DATASET\(S\) ={62}", coverageIgnore=True),
-                                    SM(r"={80}", coverageIgnore=True, weak=True),
                                     outputVarsMatcher,
                                     timerMatcher,
                                     footerMatcher
