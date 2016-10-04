@@ -139,6 +139,13 @@ class ABINITContext(object):
                 sampling_method = ""
             backend.addValue("sampling_method", sampling_method)
 
+        if self.input["x_abinit_var_tolmxf"] is not None:
+            backend.addValue("geometry_optimization_threshold_force",
+                             unit_conversion.convert_unit(self.input["x_abinit_var_tolmxf"][-1], "forceAu"))
+        if self.input["x_abinit_var_tolmxde"] is not None:
+            backend.addValue("geometry_optimization_energy_change",
+                             unit_conversion.convert_unit(self.input["x_abinit_var_tolmxde"][-1], "hartree"))
+
     def onOpen_section_single_configuration_calculation(self, backend, gIndex, section):
         """Trigger called when section_single_configuration_calculation is opened.
         """
