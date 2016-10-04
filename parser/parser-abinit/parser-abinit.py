@@ -169,6 +169,10 @@ class ABINITContext(object):
                 n_atom += 1
             backend.addArrayValues("atom_forces_raw", atom_forces)
 
+        if section["x_abinit_fermi_energy"] is not None:
+            backend.addArrayValues("energy_reference_fermi",
+                                   np.array([unit_conversion.convert_unit(section["x_abinit_fermi_energy"][-1], "hartree")]))
+
     def onClose_section_eigenvalues(self, backend, gIndex, section):
         """Trigger called when section_eigenvalues is closed.
         """
@@ -765,7 +769,7 @@ SCFResultsMatcher = \
                        coverageIgnore=True),
                     SM(r"\s*prteigrs : about to open file\s*(?P<x_abinit_eig_filename>\S*)\s*$",
                        required=False),
-                    SM(r"\s*Fermi \(or HOMO\) energy \(hartree\) =\s*(?P<energy_reference_fermi__hartree>[-+0-9.]+)\s*"
+                    SM(r"\s*Fermi \(or HOMO\) energy \(hartree\) =\s*(?P<x_abinit_fermi_energy>[-+0-9.]+)\s*"
                        r"Average Vxc \(hartree\)=\s*[-+0-9.]+\s*$"),
                     SM(r"\s*Magnetisation \(Bohr magneton\)=\s*(?P<x_abinit_magnetisation>[-+0-9.eEdD]*)\s*$"),
                     SM(r"\s*Total spin up =\s*[-+0-9.eEdD]+\s*Total spin down =\s*[-+0-9.eEdD]+\s*$",
