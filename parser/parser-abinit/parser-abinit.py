@@ -107,6 +107,11 @@ class ABINITContext(object):
         """
         if len(self.frameSequence) > 1:
             frameGIndex = backend.openSection("section_frame_sequence")
+            if section["x_abinit_geometry_optimization_converged"] is not None:
+                if section["x_abinit_geometry_optimization_converged"][-1] == "are converged":
+                    backend.addValue("geometry_optimization_converged", True)
+                else:
+                    backend.addValue("geometry_optimization_converged", False)
             backend.closeSection("section_frame_sequence", frameGIndex)
         self.frameSequence = []
         backend.closeSection("section_sampling_method", self.samplingGIndex)
@@ -858,17 +863,33 @@ SCFOutput = \
                     SM(startReStr=r"\s*Reduced forces \(fred\)\s*",
                        subMatchers=[SM(r"\s*(\s*[-+0-9.eEdD]+){3}\s*$",
                                        repeats=True)]
-                       )
+                       ),
+                    SM(r"\s*Total energy \(etotal\) \[Ha\]=\s*(?P<energy_total__hartree>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*Difference of energy with previous step \(new-old\):\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*Absolute \(Ha\)=[-+0-9.eEdD]+\s*$"),
+                    SM(r"\s*Relative\s*=[-+0-9.eEdD]+\s*$"),
+                    SM(r"fconv : WARNING -\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*(At Broyd/MD step\s*\d+\s*, gradients|ntime=\s*\d+\s*was|fconv : at Broyd/MD step\s*\d+\s*, gradients have) "
+                       r"(?P<x_abinit_geometry_optimization_converged>(are converged|not enough|not converged)) "
+                       r"(:|Broyd/MD steps to converge gradients:|yet.)\s*$"),
+                    SM(r"\s*max grad \(force/stress\) =\s*[-+0-9.eEdD]+\s*< tolmxf=\s*[-+0-9.eEdD]+\s*ha/bohr \(free atoms\)\s*")
                     ]
        )
 
 
 SCFCycleMatcher = \
     SM(name='SCFCycle',
-       startReStr=r"\s*iter\s*Etot\(hartree\)\s*deltaE\(h\)(\s*\w+)*\s*$",
+       startReStr=r"(\s*iter\s*Etot\(hartree\)\s*deltaE\(h\)(\s*\w+)*|"
+                  r"--- Iteration: \(\s*\d+/\d+\) Internal Cycle: \(\d+/\d+\))\s*$",
        repeats=True,
        sections=['section_single_configuration_calculation'],
-       subMatchers=[SM(r"\s*ETOT\s*[0-9]+\s*(?P<energy_total_scf_iteration__hartree>[-+0-9.eEdD]+)\s*"
+       subMatchers=[SM(r"-{80}\s*$",
+                       coverageIgnore=True),
+                    SM(r"---SELF-CONSISTENT-FIELD CONVERGENCE-{44}",
+                       coverageIgnore=True),
+                    SM(r"\s*ETOT\s*[0-9]+\s*(?P<energy_total_scf_iteration__hartree>[-+0-9.eEdD]+)\s*"
                        r"(?P<energy_change_scf_iteration__hartree>[-+0-9.eEdD]+)(\s*[-+0-9.eEdD]*)*",
                        sections=["section_scf_iteration"],
                        repeats=True),
