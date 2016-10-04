@@ -166,6 +166,10 @@ class ABINITContext(object):
             backend.addValue("electronic_kinetic_energy",
                              unit_conversion.convert_unit(section["x_abinit_energy_kinetic"][-1], "hartree"))
 
+        if section["energy_total"] is not None and section["x_abinit_energy_total"] is not None:
+            backend.addValue("energy_total",
+                             unit_conversion.convert_unit(section["x_abinit_energy_total"][-1], "hartree"))
+
         if section["x_abinit_atom_force"] is not None:
             atom_forces_list = section["x_abinit_atom_force"]
         elif section["x_abinit_atom_force_final"] is not None:
@@ -817,7 +821,7 @@ SCFResultsMatcher = \
                     SM(r"\s*NL   psp  energy\s*=\s*(?P<x_abinit_energy_psp_nonlocal>[-+0-9.eEdD]+)\s*$"),
                     SM(r"\s*>{5}\s*Internal E=\s*(?P<x_abinit_energy_internal>[-+0-9.eEdD]+)\s*$"),
                     SM(r"\s*-kT\*entropy\s*=\s*(?P<x_abinit_energy_ktentropy>[-+0-9.eEdD]+)\s*$"),
-                    SM(r"\s*>{9}\s*Etotal=\s*(?P<energy_total__hartree>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*>{9}\s*Etotal=\s*(?P<x_abinit_energy_total>[-+0-9.eEdD]+)\s*$"),
                     SM(r"\s*Other information on the energy :\s*$",
                        coverageIgnore=True),
                     SM(r"\s*Total energy\(eV\)=\s*[-+0-9.eEdD]+\s*;\s*Band energy \(Ha\)=\s*"
