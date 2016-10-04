@@ -166,7 +166,7 @@ class ABINITContext(object):
             backend.addValue("electronic_kinetic_energy",
                              unit_conversion.convert_unit(section["x_abinit_energy_kinetic"][-1], "hartree"))
 
-        if section["energy_total"] is not None and section["x_abinit_energy_total"] is not None:
+        if section["energy_total"] is None and section["x_abinit_energy_total"] is not None:
             backend.addValue("energy_total",
                              unit_conversion.convert_unit(section["x_abinit_energy_total"][-1], "hartree"))
 
