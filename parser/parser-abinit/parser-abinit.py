@@ -26,6 +26,18 @@ parserInfo = {
   "version": "1.0"
 }
 
+ABINIT_GEO_OPTIMIZATION = {
+    1: "viscous_damped_md",
+    2: "bfgs",
+    3: "bfgs",
+    4: "conjugate_gradient",
+    5: "steepest_descent",
+    7: "quenched_md",
+    10: "dic_bfgs",
+    11: "dic_bfgs",
+    20: "diis"
+}
+
 # loading metadata from nomad-meta-info/meta_info/nomad_meta_info/abinit.nomadmetainfo.json
 metaInfoPath = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "../../../../nomad-meta-info/meta_info/nomad_meta_info/abinit.nomadmetainfo.json"))
@@ -111,17 +123,13 @@ class ABINITContext(object):
         """
         if self.input["x_abinit_var_ionmov"] is not None:
             ionmov = self.input["x_abinit_var_ionmov"][-1]
-            if ionmov in [2, 3, 4, 5, 7, 10, 11, 20]:
+            if ionmov in [2, 3, 4, 5, 7, 10, 11, 20] or (ionmov == 1 and self.input["x_abinit_var_vis"] > 0.0):
                 sampling_method = "geometry_optimization"
-            elif ionmov in [6, 8, 12, 13, 14, 23]:
+                backend.addValue("geometry_optimization_method", ABINIT_GEO_OPTIMIZATION[ionmov])
+            elif ionmov in [6, 8, 12, 13, 14, 23] or (ionmov == 1 and self.input["x_abinit_var_vis"] == 0.0):
                 sampling_method = "molecular_dynamics"
             elif ionmov == 9:
                 sampling_method = "langevin_dynamics"
-            elif ionmov == 1:
-                if self.input["x_abinit_var_vis"] > 0:
-                    sampling_method = "geometry_optimization"
-                else:
-                    sampling_method = "molecular_dynamics"
             else:
                 sampling_method = ""
             backend.addValue("sampling_method", sampling_method)
