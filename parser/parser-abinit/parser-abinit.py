@@ -767,6 +767,9 @@ SCFResultsMatcher = \
                        required=False),
                     SM(r"\s*Fermi \(or HOMO\) energy \(hartree\) =\s*(?P<energy_reference_fermi__hartree>[-+0-9.]+)\s*"
                        r"Average Vxc \(hartree\)=\s*[-+0-9.]+\s*$"),
+                    SM(r"\s*Magnetisation \(Bohr magneton\)=\s*(?P<x_abinit_magnetisation>[-+0-9.eEdD]*)\s*$"),
+                    SM(r"\s*Total spin up =\s*[-+0-9.eEdD]+\s*Total spin down =\s*[-+0-9.eEdD]+\s*$",
+                       coverageIgnore=True),
                     SM(name="Eigenvalues",
                        startReStr=r"\s*Eigenvalues \(hartree\) for nkpt=\s*[0-9]+\s*k points(, SPIN (UP|DOWN))?:\s*$",
                        forwardMatch=True,
@@ -874,6 +877,38 @@ SCFCycleMatcher = \
                                        r"\s*sigma\(2 1\)=\s*(?P<x_abinit_stress_tensor_yx>[-+0-9.eEdD]+)\s*$")
                                     ]
                        ),
+                    SM(startReStr=r"\s*Integrated electronic density in atomic spheres:\s*$",
+                       required=False,
+                       coverageIgnore=True,
+                       subMatchers=[SM(r"\s*-{48}\s*$",
+                                       coverageIgnore=True),
+                                    SM(r"\s*Atom\s*Sphere_radius\s*Integrated_density\s*$",
+                                       coverageIgnore=True),
+                                    SM(r"\s*\d+\s*[0-9.]+\s*[0-9.]+\s*$",
+                                       coverageIgnore=True, repeats=True)
+                                    ]
+                       ),
+                    SM(startReStr=r"\s*Integrated electronic and magnetization densities in atomic spheres:\s*$",
+                       required=False,
+                       coverageIgnore=True,
+                       subMatchers=[SM(r"\s*-{69}\s*$",
+                                       coverageIgnore=True),
+                                    SM(r"\s*Note: Diff\(up-dn\) is a rough approximation of local magnetic moment\s*$",
+                                       coverageIgnore=True),
+                                    SM(r"\s*Atom\s*Radius\s*up_density\s*dn_density\s*Total\(up\+dn\)\s*Diff\(up-dn\)\s*$",
+                                       coverageIgnore=True),
+                                    SM(r"\s*\d+(\s*[0-9.]+){5}\s*$",
+                                       coverageIgnore=True, repeats=True),
+                                    SM(r"\s*-{69}\s*$",
+                                       coverageIgnore=True),
+                                    SM(r"\s*Sum:(\s*[0-9.]+){4}\s*$",
+                                       coverageIgnore=True),
+                                    SM(r"\s*Total magnetization \(from the atomic spheres\):\s*[0-9.]+\s*$",
+                                       coverageIgnore=True),
+                                    SM(r"\s*Total magnetization \(exact up - dn\):\s*[0-9.]+\s*$",
+                                       coverageIgnore=True)
+                                    ]
+                       ),
                     SCFOutput,
                     SM(r"={80}\s*$",
                        coverageIgnore=True, required=False),
@@ -881,6 +916,48 @@ SCFCycleMatcher = \
                     ]
        )
 
+
+pseudopotentialMatcher = \
+    SM(name="pseudopotential",
+       startReStr=r"-\s*pspini: atom type\s*[0-9]+\s*psp file is \S*\s*$",
+       endReStr=r"\s*pspatm: atomic psp has been read  and splines computed\s*$",
+       forwardMatch=True,
+       repeats=True,
+       coverageIgnore=True,
+       subMatchers=[SM(r"-\s*pspini: atom type\s*\d+\s*psp file is\s*\S*\s*$"),
+                    SM(r"-\s*pspatm: opening atomic psp file\s*\S*",
+                       coverageIgnore=True),
+                    SM(r"-\s*(\S+\s*)+\s*\w{3}\s*\w{3}\s*\d+\s*\d+:\d+:\d+\s*EDT\s*\d{4}\s*$"),
+                    SM(r"-(\s*[0-9.]+){3}\s*znucl, zion, pspdat\s*$"),
+                    SM(r"(\s*\d+){5}\s*[0-9.]+\s*pspcod,pspxc,lmax,lloc,mmax,r2well\s*$"),
+                    SM(startReStr=r"\s*\d+\s*[0-9.]+\s*[0-9.]+\s*\d+\s*[0-9.]+\s*l,e99.0,e99.9,nproj,rcpsp\s*$",
+                       repeats=True,
+                       subMatchers=[SM(r"\s*([0-9.]+\s*){4}rms, ekb1, ekb2, epsatm\s*$")]),
+                    SM(r"\s*([0-9.]+\s*){3}rchrg,fchrg,qchrg\s*$"),
+                    SM(startReStr=r"\s*rloc=\s*[0-9.]+\s*$",
+                       subMatchers=[SM(r"\s*cc1=\s*[-0-9.]+; cc2=\s*[-0-9.]+; cc3=\s*[-0-9.]+; cc4=\s*[-0-9.]+\s*$"),
+                                    SM(r"\s*rrs=\s*[-0-9.]+; h1s=\s*[-0-9.]+; h2s=\s*[-0-9.]+\s*$"),
+                                    SM(r"\s*rrp=\s*[-0-9.]+; h1p=\s*[-0-9.]+\s*$"),
+                                    SM(r"-  Local part computed in reciprocal space.\s*$")
+                                    ]
+                       ),
+                    SM(r"\s*pspatm : COMMENT -\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*the projectors are not normalized,\s*",
+                       coverageIgnore=True),
+                    SM(r"\s*so that the KB energies are not consistent with\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*definition in PRB44, 8503 \(1991\).\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*However, this does not influence the results obtained hereafter.\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*pspatm: epsatm=\s*[-+0-9.eEdD]+\s*$"),
+                    SM(r"\s*--- l  ekb\(1:nproj\) -->\s*$",
+                       coverageIgnore=True),
+                    SM(r"\s*\d+\s*[-+0-9.eEdD]+\s*$",
+                       repeats=True)
+                    ]
+       )
 
 datasetHeaderMatcher = \
     SM(name='DatasetHeader',
@@ -913,17 +990,7 @@ datasetHeaderMatcher = \
                     SM(r"\s*ecut\(hartree\)=\s*[0-9.]*\s*=> boxcut\(ratio\)=\s*[0-9.]*\s*$"),
                     SM(r"--- Pseudopotential description ------------------------------------------------",
                        coverageIgnore=True),
-                    SM(name="pseudopotential",
-                       startReStr=r"-\s*pspini: atom type\s*[0-9]+\s*psp file is \S*\s*$",
-                       forwardMatch=True,
-                       repeats=True,
-                       coverageIgnore=True,
-                       subMatchers=[SM(r"-\s*pspini: atom type\s*\d+\s*psp file is\s*\S*\s*$"),
-                                    SM(r"-\s*pspatm: opening atomic psp file\s*\S*",
-                                       coverageIgnore=True),
-                                    SM(r"-\s*(\S+\s*)+\s*\w{3}\s*\w{3}\s*\d+\s*\d+:\d+:\d+\s*EDT\s*\d{4}\s*$")
-                                    ]
-                       ),
+                    pseudopotentialMatcher,
                     SM(r"\s*[-+0-9.eEdD]+\s*ecore\*ucvol\(ha\*bohr\*\*3\)\s*$",
                        coverageIgnore=True),
                     SM(r"-{80}",
