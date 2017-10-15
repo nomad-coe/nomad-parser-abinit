@@ -387,7 +387,7 @@ class ABINITContext(object):
 
         backend.addValue("number_of_atoms", self.input["x_abinit_var_natom"][-1])
 
-        backend.addValue("spacegroup_3D_number", self.input["x_abinit_var_spgroup"][-1])
+        #backend.addValue("space_group_3D_number", self.input["x_abinit_var_spgroup"][-1]) # leave this to the normalizer...
 
         vprim = backend.arrayForMetaInfo("simulation_cell", [3, 3])
         for axis in [1, 2, 3]:
