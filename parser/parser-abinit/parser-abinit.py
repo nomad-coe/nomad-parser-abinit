@@ -612,8 +612,8 @@ timerMatcher = \
 
 memestimationMatcher = \
     SM(name='MemEstimation',
-       startReStr=r"\s*(Symmetries|DATASET\s*[0-9]{1,4})\s*: space group \S* \S* \S* \(\#\S*\);\s*Bravais\s*\S*\s*\("
-                  r"[a-zA-Z- .]*\)\s*$",
+       startReStr=r"\s*(Symmetries|DATASET\s*[0-9]{1,4})\s*:\s*space group\s*(\S*\s*){1,3}\s*\(\#\s*[0-9]{1,3}\);\s*"
+                  r"Bravais\s*\S*\s*\([0-9a-zA-Z- .]*\)\s*$",
        endReStr=r"={80}",
        repeats=True,
        subMatchers=[SM(r"={80}",
@@ -935,7 +935,6 @@ pseudopotentialMatcher = \
        subMatchers=[SM(r"-\s*pspini: atom type\s*\d+\s*psp file is\s*\S*\s*$"),
                     SM(r"-\s*pspatm: opening atomic psp file\s*\S*",
                        coverageIgnore=True),
-                    SM(r"-\s*(\S+\s*)+\s*\w{3}\s*\w{3}\s*\d+\s*\d+:\d+:\d+\s*EDT\s*\d{4}\s*$"),
                     SM(r"-(\s*[0-9.]+){3}\s*znucl, zion, pspdat\s*$"),
                     SM(r"(\s*\d+){5}\s*[0-9.]+\s*pspcod,pspxc,lmax,lloc,mmax,r2well\s*$"),
                     SM(startReStr=r"\s*\d+\s*[0-9.]+\s*[0-9.]+\s*\d+\s*[0-9.]+\s*l,e99.0,e99.9,nproj,rcpsp\s*$",
