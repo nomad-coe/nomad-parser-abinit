@@ -668,10 +668,10 @@ inputVarsMatcher = \
                        repeats=True,
                        subMatchers=[SM(r"[-P]?\s+(?P<x_abinit_varname>[_a-zA-Z0-9]+)\s+"
                                        r"(?P<x_abinit_varvalue>((?!(Bohr|Hartree))\S*\s*)+)\s*(Hartree|Bohr)?\s*$"),
-                                    SM(r"\s{20,}(?P<x_abinit_varvalue>(\S*\s*)+)\s*$",
+                                    SM(r"\s{20,}(?P<x_abinit_varvalue>([0-9Ee.+-]+\s*)+)\s*$",
                                        repeats=True),
                                     SM(r"\s{20,}outvar(_i_n|s)\s*: Printing only first\s*"
-                                       r"(?P<x_abinit_vartruncation>[0-9]*)\s*[-a-zA-Z]*.\s*$",
+                                       r"(?P<x_abinit_vartruncation>[0-9]+)\s*[-a-zA-Z]*.\s*$",
                                        required=False)
                                     ]
                        ),
