@@ -508,10 +508,12 @@ class ABINITContext(object):
         """Trigger called when x_abinit_section_var is closed.
         """
         # We store all the variables read in a dictionary for latter use.
-        if section["x_abinit_vardtset"] is None:
+        m = re.search('[0-9]+$', section["x_abinit_varname"][0])
+        if m is None:
             dataset = 0
         else:
-            dataset = section["x_abinit_vardtset"][0]
+            dataset = int(m.group(0))
+            section["x_abinit_varname"][0] = re.sub('[0-9]+$', '', section["x_abinit_varname"][0])
 
         if dataset not in self.abinitVars.keys():
             self.abinitVars[dataset] = {}
@@ -524,60 +526,6 @@ class ABINITContext(object):
                 self.abinitVars[dataset]["x_abinit_var_" + section["x_abinit_varname"][0]] = \
                     " ".join(section["x_abinit_varvalue"])
 
-
-def build_abinit_vars_submatcher(is_output=False):
-    matchers = []
-
-    # Generate a dict of Abinit variables with the corresponding regex pattern.
-    abi_vars = {}
-    for varname in metaInfoEnv.infoKinds.keys():
-        if "x_abinit_var_" in varname:
-            meta_info = metaInfoEnv.infoKindEl(varname)
-            if meta_info.dtypeStr == "f":
-                pattern = "[-+0-9.eEdD]+"
-            elif meta_info.dtypeStr == "i":
-                pattern = "[-+0-9]+"
-            elif meta_info.dtypeStr == "C":
-                pattern = "[\w+]"
-            else:
-                raise Exception("Data type not supported")
-            abi_vars[re.sub("x_abinit_var_", "", varname)] = pattern
-
-    # Some variables that Abinit writes to the output are not documented as input variables so we add them here to the
-    # dictionary.
-    abi_vars.update({"mkmem": "[-+0-9]+"})
-    if is_output:
-        abi_vars.update(dict(etotal="[-+0-9.eEdD]+", fcart="[-+0-9.eEdD]+", strten="[-+0-9.eEdD]+"))
-
-    # Currently we cannot create matchers for all the Abinit input variables as this would generate more than 100 named
-    # groups in regexp. Therefore we will only try to parse a subset of the input variables. This should be changed once
-    # this problem is fixed.
-    supported_vars = \
-        ["acell", "amu", "bs_loband", "diemac", "ecut", "etotal", "fcart", "fftalg", "ionmov", "iscf", "istwfk", "ixc",
-         "jdtset", "natom", "kpt", "kptopt", "kptrlatt", "kptrlen", "mkmem", "nband", "ndtset", "ngfft", "nkpt",
-         "nspden", "nsppol", "nstep", "nsym", "ntime", "ntypat", "occ", "occopt", "optforces", "prtdos", "rprim",
-         "shiftk", "spgroup", "spinat", "strten", "symafm", "symrel", "tnons", "toldfe", "toldff", "tolmxf", "tolvrs",
-         "tsmear", "typat", "wtk", "xangst", "xcart", "xred", "znucl"]
-    for varname in sorted(abi_vars):
-        if varname in supported_vars:
-            matchers.append(SM(startReStr=r"[-P]?\s+%s[0-9]{0,4}\s+(%s\s*)+\s*(Hartree|Bohr)?\s*$"
-                                          % (varname, abi_vars[varname]),
-                               forwardMatch=True,
-                               sections=['x_abinit_section_var'],
-                               repeats=True,
-                               subMatchers=[SM(r"[-P]?\s+(?P<x_abinit_varname>%s)((?P<x_abinit_vardtset>[0-9]{1,4})\s+|"
-                                               r"\s+)(?P<x_abinit_varvalue>(%s\s*)+)\s*(Hartree|Bohr)?\s*$"
-                                               % (varname, abi_vars[varname])),
-                                            SM(r"\s{20,}(?P<x_abinit_varvalue>(%s\s*)+)\s*$" % (abi_vars[varname]),
-                                               repeats=True),
-                                            SM(r"\s{20,}outvar(_i_n|s)\s*: Printing only first\s*"
-                                               r"(?P<x_abinit_vartruncation>[0-9]*)\s*[-a-zA-Z]*.\s*$",
-                                               required=False)
-                                            ]
-                               )
-                            )
-    matchers.append(SM(r"\s*", coverageIgnore=True))
-    return matchers
 
 # description of the input
 headerMatcher = \
@@ -714,7 +662,19 @@ inputVarsMatcher = \
                        coverageIgnore=True),
                     SM(r" -outvars: echo values of preprocessed input variables --------",
                        coverageIgnore=True),
-                    ] + build_abinit_vars_submatcher() + [
+                    SM(startReStr=r"[-P]?\s+[_a-zA-Z0-9]+\s+(\S*\s*)+\s*(Hartree|Bohr)?\s*$",
+                       forwardMatch=True,
+                       sections=['x_abinit_section_var'],
+                       repeats=True,
+                       subMatchers=[SM(r"[-P]?\s+(?P<x_abinit_varname>[_a-zA-Z0-9]+)\s+"
+                                       r"(?P<x_abinit_varvalue>((?!(Bohr|Hartree))\S*\s*)+)\s*(Hartree|Bohr)?\s*$"),
+                                    SM(r"\s{20,}(?P<x_abinit_varvalue>(\S*\s*)+)\s*$",
+                                       repeats=True),
+                                    SM(r"\s{20,}outvar(_i_n|s)\s*: Printing only first\s*"
+                                       r"(?P<x_abinit_vartruncation>[0-9]*)\s*[-a-zA-Z]*.\s*$",
+                                       required=False)
+                                    ]
+                       ),
                     SM(r"={80}",
                        coverageIgnore=True),
                     SM(r"\s*chkinp: Checking input parameters for consistency(\.|,\s*jdtset=\s*[0-9]+\.)",
@@ -1078,7 +1038,16 @@ outputVarsMatcher = \
        endReStr=r"={80}",
        coverageIgnore=True,
        required=True,
-       subMatchers=build_abinit_vars_submatcher(is_output=True)
+       subMatchers=[SM(startReStr=r"[-P]?\s+[_a-zA-Z0-9]+\s+(\S*\s*)+\s*(Hartree|Bohr)?\s*$",
+                       repeats=True,
+                       coverageIgnore=True,
+                       subMatchers=[SM(r"\s{20,}(\S*\s*)+\s*$",
+                                       repeats=True, coverageIgnore=True),
+                                    SM(r"\s{20,}outvar(_i_n|s)\s*: Printing only first\s*[0-9]*\s*[-a-zA-Z]*.\s*$",
+                                       required=False, coverageIgnore=True)
+                                    ]
+                       )
+                    ]
        )
 
 footerMatcher = \
