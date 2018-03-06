@@ -1018,7 +1018,7 @@ datasetMatcher = \
        repeats=True,
        sections=['x_abinit_section_dataset'],
        subMatchers=[datasetHeaderMatcher,
-                    SM("===\s*\[ionmov=\s*\d+\]\s*\S*\s*method\s*\(forces,Tot energy\)\s*$",
+                    SM("===\s*\[ionmov=\s*\d+\]\s*\S*\s*method\s*\(forces(,Tot energy){0,1}\)\s*$",
                        required=False, coverageIgnore=True),
                     SM(r"={80}\s*$",
                        coverageIgnore=True, required=False, weak=True),
