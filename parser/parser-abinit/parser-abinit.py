@@ -870,7 +870,7 @@ SCFOutput = \
 
 SCFCycleMatcher = \
     SM(name='SCFCycle',
-       startReStr=r"(\s*iter\s*Etot\(hartree\)\s*deltaE\(h\)(\s*\w+)*|"
+       startReStr=r"(\s*iter\s*(Etot\(hartree\)|2DEtotal\(Ha\))\s*deltaE\((h|Ha)\)(\s*\w+)*|"
                   r"--- Iteration: \(\s*\d+/\d+\) Internal Cycle: \(\d+/\d+\))\s*$",
        repeats=True,
        sections=['section_single_configuration_calculation'],
@@ -878,7 +878,7 @@ SCFCycleMatcher = \
                        coverageIgnore=True),
                     SM(r"---SELF-CONSISTENT-FIELD CONVERGENCE-{44}",
                        coverageIgnore=True),
-                    SM(r"\s*ETOT\s*[0-9]+\s*(?P<energy_total_scf_iteration__hartree>[-+0-9.eEdD]+)\s*"
+                    SM(r"(\s*|-)ETOT\s*[0-9]+\s*(?P<energy_total_scf_iteration__hartree>[-+0-9.eEdD]+)\s*"
                        r"(?P<energy_change_scf_iteration__hartree>[-+0-9.eEdD]+)(\s*[-+0-9.eEdD]*)*",
                        sections=["section_scf_iteration"],
                        repeats=True),
