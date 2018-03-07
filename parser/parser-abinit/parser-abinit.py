@@ -870,7 +870,7 @@ SCFOutput = \
 
 SCFCycleMatcher = \
     SM(name='SCFCycle',
-       startReStr=r"(\s*iter\s*Etot\(hartree\)\s*deltaE\(h\)(\s*\w+)*|"
+       startReStr=r"(\s*iter\s*(Etot\(hartree\)|2DEtotal\(Ha\))\s*deltaE\((h|Ha)\)(\s*\w+)*|"
                   r"--- Iteration: \(\s*\d+/\d+\) Internal Cycle: \(\d+/\d+\))\s*$",
        repeats=True,
        sections=['section_single_configuration_calculation'],
