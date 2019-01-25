@@ -490,7 +490,7 @@ class ABINITContext(object):
                 if section["x_abinit_var_ixc"] is None:
                     backend.addValue(varname, backend.convertScalarStringValue(varname, varvalue))
 
-            elif len(meta_info.shape) == 0:
+            elif not meta_info.shape or len(meta_info.shape) == 0:
                 # This is a simple scalar
                 backend.addValue(varname, backend.convertScalarStringValue(varname, varvalue))
 
