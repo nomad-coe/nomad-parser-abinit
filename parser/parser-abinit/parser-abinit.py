@@ -134,8 +134,8 @@ class ABINITContext(object):
         """Trigger called when section_framce_sequence is closed.
         """
         backend.addValue("number_of_frames_in_sequence", len(self.frameSequence))
-        backend.addArrayValues("frame_sequence_local_frames_ref", np.array(self.frameSequence))
-        backend.addValue("frame_sequence_to_sampling_ref", self.samplingGIndex)
+        backend.addArrayValues("frame_sequence_to_frames_ref", np.array(self.frameSequence))
+        backend.addValue("frame_sequence_to_sampling_method_ref", self.samplingGIndex)
 
     def onClose_section_sampling_method(self, backend, gIndex, section):
         """Trigger called when section_sampling_method is closed.
@@ -165,7 +165,7 @@ class ABINITContext(object):
         """
         self.systemGIndex = backend.openSection("section_system")
         backend.addValue("single_configuration_calculation_to_system_ref", self.systemGIndex)
-        backend.addValue("single_configuration_to_calculation_method_ref", self.methodGIndex)
+        backend.addValue("single_configuration_calculation_to_method_ref", self.methodGIndex)
         self.frameSequence.append(gIndex)
 
     def onClose_section_single_configuration_calculation(self, backend, gIndex, section):
@@ -182,7 +182,7 @@ class ABINITContext(object):
         backend.addValue("single_configuration_calculation_converged", converged)
 
         if section["x_abinit_energy_xc"] is not None:
-            backend.addValue("energy_XC", unit_conversion.convert_unit(section["x_abinit_energy_xc"][-1], "hartree"))
+            backend.addValue("energy_xc", unit_conversion.convert_unit(section["x_abinit_energy_xc"][-1], "hartree"))
         if section["x_abinit_energy_kinetic"] is not None:
             backend.addValue("electronic_kinetic_energy",
                              unit_conversion.convert_unit(section["x_abinit_energy_kinetic"][-1], "hartree"))
@@ -199,13 +199,16 @@ class ABINITContext(object):
             atom_forces_list = None
 
         if atom_forces_list is not None:
-            atom_forces = backend.arrayForMetaInfo("atom_forces_raw", [self.input["x_abinit_var_natom"][-1],3])
+            atom_forces = backend.arrayForMetaInfo("atom_forces", [self.input["x_abinit_var_natom"][-1],3])
             n_atom = 0
             for force_string in atom_forces_list:
                 for dir in range(3):
                     atom_forces[n_atom, dir] = unit_conversion.convert_unit(float(force_string.split()[dir]), "forceAu")
                 n_atom += 1
-            backend.addArrayValues("atom_forces_raw", atom_forces)
+            fId = backend.openSection('section_atom_forces')
+            backend.addValue('atom_forces_constraints', 'raw')
+            backend.addArrayValues("atom_forces", atom_forces)
+            backend.closeSection('section_atom_forces', fId)
 
         if section["x_abinit_fermi_energy"] is not None:
             backend.addArrayValues("energy_reference_fermi",
@@ -344,13 +347,13 @@ class ABINITContext(object):
 
         if xc_functionals is not None:
             for xc_functional in xc_functionals:
-                gIndex = backend.openSection('section_XC_functionals')
+                gIndex = backend.openSection('section_xc_functionals')
                 for key, value in sorted(xc_functional.items()):
                     if isinstance(value, (list, dict)):
                         backend.addValue(key, value)
                     else:
                         backend.addValue(key, value)
-                backend.closeSection('section_XC_functionals', gIndex)
+                backend.closeSection('section_xc_functionals', gIndex)
 
     def onClose_section_system(self, backend, gIndex, section):
         """Trigger called when section_system is closed.
