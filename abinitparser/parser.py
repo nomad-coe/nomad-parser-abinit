@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import setup_paths
 from builtins import object
 from nomadcore.caching_backend import CachingLevel
 from nomadcore.simple_parser import SimpleMatcher as SM
@@ -21,12 +20,13 @@ from nomadcore.local_meta_info import loadJsonFile, InfoKindEl
 from nomadcore import parser_backend
 from nomadcore.unit_conversion import unit_conversion
 from ase.data import chemical_symbols
-from AbinitXC import ABINIT_NATIVE_IXC, ABINIT_LIBXC_IXC
+from abinitparser.AbinitXC import ABINIT_NATIVE_IXC, ABINIT_LIBXC_IXC
 import numpy as np
 import re
 import os
 import logging
 import time
+import sys
 
 try:
     basestring
@@ -53,12 +53,9 @@ ABINIT_GEO_OPTIMIZATION = {
 }
 
 # loading metadata from nomad-meta-info/meta_info/nomad_meta_info/abinit.nomadmetainfo.json
-metaInfoPath = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "../../../../nomad-meta-info/meta_info/nomad_meta_info/abinit.nomadmetainfo.json"))
-metaInfoEnv, warnings = loadJsonFile(filePath=metaInfoPath,
-                                     dependencyLoader=None,
-                                     extraArgsHandling=InfoKindEl.ADD_EXTRA_ARGS,
-                                     uri=None)
+import nomad_meta_info
+metaInfoPath = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(nomad_meta_info.__file__)), "abinit.nomadmetainfo.json"))
+metaInfoEnv, warnings = loadJsonFile(filePath = metaInfoPath, dependencyLoader = None, extraArgsHandling = InfoKindEl.ADD_EXTRA_ARGS, uri = None)
 
 
 class ABINITContext(object):
@@ -358,15 +355,24 @@ class ABINITContext(object):
         species_count = {}
         for z in self.input["x_abinit_var_znucl"][-1]:
             species_count[chemical_symbols[int(z)]] = 0
+
         atom_types = []
         for z in self.input["x_abinit_var_znucl"][-1]:
             symbol = chemical_symbols[int(z)]
             species_count[symbol] += 1
             atom_types.append(symbol+str(species_count[symbol]))
+
         atom_labels = backend.arrayForMetaInfo("atom_labels", self.input["x_abinit_var_natom"][-1])
+
         for atom_index in range(self.input["x_abinit_var_natom"][-1]):
             atom_labels[atom_index] = atom_types[self.input["x_abinit_var_typat"][-1][atom_index] - 1]
-        backend.addArrayValues("atom_labels", atom_labels)
+
+        # We end up with a list of atom labels. The problem is that the ase library
+        # compalains about receiving lists such as ['F2', 'B', C']. The 2 in the F is the
+        # problem. So let's join the strings in the list. Ase still won't like
+        # ['F2BC'] so we return the string inside the list instead.
+        atom_labels_nomad_faird = ''.join(atom_labels)
+        backend.addArrayValues("atom_labels", atom_labels_nomad_faird)
 
 
         if section["x_abinit_atom_xcart"] is not None:
@@ -1130,6 +1136,27 @@ mainFileDescription = \
                     ]
        )
 
+class AbinitParser():
+   """ A proper class envolop for running this parser from within python. """
+   def __init__(self, backend, **kwargs):
+       self.backend_factory = backend
+
+   def parse(self, mainfile):
+       from unittest.mock import patch
+       logging.info('abinit parser started')
+       logging.getLogger('nomadcore').setLevel(logging.WARNING)
+       backend = self.backend_factory(metaInfoEnv)
+       with patch.object(sys, 'argv', ['<exe>', '--uri', 'nmd://uri', mainfile]):
+           mainFunction(
+               mainFileDescription,
+               metaInfoEnv,
+               parserInfo,
+               cachingLevelForMetaName = {'x_abinit_section_var': CachingLevel.Cache
+                                         },
+               superContext=ABINITContext(),
+               superBackend=backend)
+
+       return backend
 
 if __name__ == "__main__":
     superContext = ABINITContext()
