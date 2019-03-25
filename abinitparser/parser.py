@@ -707,17 +707,17 @@ eigenvaluesBlockMatcher = \
     SM(name="EigenvaluesBlock",
        startReStr=r"\s*Eigenvalues \(hartree\) for nkpt=\s*[0-9]+\s*k points(, SPIN (UP|DOWN))?:\s*$",
        repeats=True,
-       subMatchers=[SM(startReStr=r"\s*kpt#\s*[0-9]+, nband=\s*[0-9]+, wtk=\s*[0-9.]+\s*, kpt=(\s*[-+0-9.eEdD]+){3}"
+       subMatchers=[SM(startReStr=r"\s*kpt#\s*[0-9]+, nband=\s*[0-9]+, wtk=\s*[0-9.]+\s*, kpt=(\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){3}"
                                   r"\s*\(reduced coord\)\s*$",
                        forwardMatch=True,
                        repeats=True,
                        subMatchers=[SM(r"\s*kpt#\s*[0-9]+, nband=\s*[0-9]+, wtk=\s*(?P<x_abinit_wtk>[0-9.]+)\s*, "
-                                       r"kpt=(?P<x_abinit_kpt>(\s*[-+0-9.eEdD]+){3})\s*\(reduced coord\)\s*$"),
-                                    SM(r"(?P<x_abinit_eigenvalues>(\s+[-+0-9.eEdD]+)+)\s*$",
+                                       r"kpt=(?P<x_abinit_kpt>(\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){3})\s*\(reduced coord\)\s*$"),
+                                    SM(r"(?P<x_abinit_eigenvalues>(\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)+)\s*$",
                                        repeats=True),
                                     SM(r"\s*occupation numbers for kpt#\s+[0-9]+\s*$",
                                        required=False),
-                                    SM(r"(?P<x_abinit_occupations>(\s+[-+0-9.eEdD]+)+)\s*$",
+                                    SM(r"(?P<x_abinit_occupations>(\s+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)+)\s*$",
                                        repeats=True, required=False)
                                     ]
                        ),
@@ -728,7 +728,7 @@ SCFResultsMatcher = \
     SM(name='SCFResults',
        startReStr=r"\s*----iterations are completed or convergence reached----\s*$",
        required=False,
-       subMatchers=[SM(r"\s*Mean square residual over all n,k,spin=\s*[-+0-9.eEdD]+\s*;\s*max=\s*[-+0-9.eEdD]+\s*$",
+       subMatchers=[SM(r"\s*Mean square residual over all n,k,spin=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*;\s*max=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$",
                        coverageIgnore=True),
                     SM(startReStr=r"\s*([-+0-9.]+\s*){3}\s*[0-9]?\s*[-+0-9eEdD.]+\s*kpt; spin; max resid\(k\); each band:\s*$",
                        coverageIgnore=True,
@@ -743,7 +743,7 @@ SCFResultsMatcher = \
                                        coverageIgnore=True, repeats=True)
                                     ]
                        ),
-                    SM(startReStr=r"\s*rms dE/dt=\s*[-+0-9.eEdD]+\s*; max dE/dt=\s*[-+0-9.eEdD]+\s*; dE/dt below "
+                    SM(startReStr=r"\s*rms dE/dt=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*; max dE/dt=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*; dE/dt below "
                                   r"\(all hartree\)\s*$",
                        coverageIgnore=True,
                        subMatchers=[SM(r"\s*[0-9]+\s*([-+0-9.]+\s*){3}\s*$",
@@ -758,13 +758,13 @@ SCFResultsMatcher = \
                     SM(startReStr=r"\s*cartesian forces \(hartree/bohr\) at end:\s*$",
                        subMatchers=[SM(r"\s*[0-9]+(?P<x_abinit_atom_force_final>(\s*[-+0-9.]+){3})\s*$",
                                        repeats=True),
-                                    SM(r"\s*frms,max,avg=(\s*[-+0-9.eEdD]+){5}\s*h/b\s*$")
+                                    SM(r"\s*frms,max,avg=(\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){5}\s*h/b\s*$")
                                     ]
                        ),
                     SM(startReStr=r"\s*cartesian forces \(eV/Angstrom\) at end:\s*$",
                        subMatchers=[SM(r"\s*[0-9]+(\s*[-+0-9.]+){3}\s*$",
                                        repeats=True),
-                                    SM(r"\s*frms,max,avg=(\s*[-+0-9.eEdD]+){5}\s*e/A\s*$")
+                                    SM(r"\s*frms,max,avg=(\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){5}\s*e/A\s*$")
                                     ]
                        ),
                     SM(r"\s*length scales=(\s*[0-9.]+){3}\s*bohr\s*$",
@@ -776,7 +776,7 @@ SCFResultsMatcher = \
                     SM(r"\s*Fermi \(or HOMO\) energy \(hartree\) =\s*(?P<x_abinit_fermi_energy>[-+0-9.]+)\s*"
                        r"Average Vxc \(hartree\)=\s*[-+0-9.]+\s*$"),
                     SM(r"\s*Magnetisation \(Bohr magneton\)=\s*(?P<x_abinit_magnetisation>[-+0-9.eEdD]*)\s*$"),
-                    SM(r"\s*Total spin up =\s*[-+0-9.eEdD]+\s*Total spin down =\s*[-+0-9.eEdD]+\s*$",
+                    SM(r"\s*Total spin up =\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*Total spin down =\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$",
                        coverageIgnore=True),
                     SM(name="Eigenvalues",
                        startReStr=r"\s*Eigenvalues \(hartree\) for nkpt=\s*[0-9]+\s*k points(, SPIN (UP|DOWN))?:\s*$",
@@ -789,51 +789,51 @@ SCFResultsMatcher = \
                                   r"Relative magnetization \(=zeta, between -1 and 1\))\s*(\[el/Bohr\^3\])?\s*$",
                        coverageIgnore=True,
                        repeats=True,
-                       subMatchers=[SM(r",(Next)?\s*(m|M)(axi|ini)mum=\s*[-+0-9.eEdD]+\s*at reduced coord."
+                       subMatchers=[SM(r",(Next)?\s*(m|M)(axi|ini)mum=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*at reduced coord."
                                        r"(\s*[0-9.]+){3}\s*$",
                                        repeats=True),
-                                    SM(r",\s*Integrated=\s*[-+0-9.eEdD]+\s*$"),
+                                    SM(r",\s*Integrated=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$"),
                                     ]
                        ),
                     SM(r"-{80}",
                        coverageIgnore=True),
                     SM(r"\s*Components of total free energy \(in Hartree\) :\s*$",
                        coverageIgnore=True),
-                    SM(r"\s*Kinetic energy\s*=\s*(?P<x_abinit_energy_kinetic>[-+0-9.eEdD]+)\s*$"),
-                    SM(r"\s*Hartree energy\s*=\s*(?P<x_abinit_energy_hartree>[-+0-9.eEdD]+)\s*$"),
-                    SM(r"\s*XC energy\s*=\s*(?P<x_abinit_energy_xc>[-+0-9.eEdD]+)\s*$"),
-                    SM(r"\s*Ewald energy\s*=\s*(?P<x_abinit_energy_ewald>[-+0-9.eEdD]+)\s*$"),
-                    SM(r"\s*PspCore energy\s*=\s*(?P<x_abinit_energy_psp_core>[-+0-9.eEdD]+)\s*$"),
-                    SM(r"\s*Loc. psp. energy\s*=\s*(?P<x_abinit_energy_psp_local>[-+0-9.eEdD]+)\s*$"),
-                    SM(r"\s*NL   psp  energy\s*=\s*(?P<x_abinit_energy_psp_nonlocal>[-+0-9.eEdD]+)\s*$"),
-                    SM(r"\s*>{5}\s*Internal E=\s*(?P<x_abinit_energy_internal>[-+0-9.eEdD]+)\s*$"),
-                    SM(r"\s*-kT\*entropy\s*=\s*(?P<x_abinit_energy_ktentropy>[-+0-9.eEdD]+)\s*$"),
-                    SM(r"\s*>{9}\s*Etotal=\s*(?P<x_abinit_energy_total>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*Kinetic energy\s*=\s*(?P<x_abinit_energy_kinetic>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+                    SM(r"\s*Hartree energy\s*=\s*(?P<x_abinit_energy_hartree>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+                    SM(r"\s*XC energy\s*=\s*(?P<x_abinit_energy_xc>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+                    SM(r"\s*Ewald energy\s*=\s*(?P<x_abinit_energy_ewald>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+                    SM(r"\s*PspCore energy\s*=\s*(?P<x_abinit_energy_psp_core>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+                    SM(r"\s*Loc. psp. energy\s*=\s*(?P<x_abinit_energy_psp_local>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+                    SM(r"\s*NL   psp  energy\s*=\s*(?P<x_abinit_energy_psp_nonlocal>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+                    SM(r"\s*>{5}\s*Internal E=\s*(?P<x_abinit_energy_internal>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+                    SM(r"\s*-kT\*entropy\s*=\s*(?P<x_abinit_energy_ktentropy>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+                    SM(r"\s*>{9}\s*Etotal=\s*(?P<x_abinit_energy_total>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
                     SM(r"\s*Other information on the energy :\s*$",
                        coverageIgnore=True),
-                    SM(r"\s*Total energy\(eV\)=\s*[-+0-9.eEdD]+\s*;\s*Band energy \(Ha\)=\s*"
-                       r"(?P<x_abinit_energy_band>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*Total energy\(eV\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*;\s*Band energy \(Ha\)=\s*"
+                       r"(?P<x_abinit_energy_band>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
                     SM(r"-{80}",
                        coverageIgnore=True),
-                    SM(startReStr=r"\s*rms coord change=\s*[-+0-9.eEdD]+\s*atom, delta coord \(reduced\):\s*$",
-                       subMatchers=[SM(r"\s*\d+(\s*[-+0-9.eEdD]+){3}\s*$",
+                    SM(startReStr=r"\s*rms coord change=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*atom, delta coord \(reduced\):\s*$",
+                       subMatchers=[SM(r"\s*\d+(\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){3}\s*$",
                                        repeats=True),
                                     ]),
                     SM(r"\s*Cartesian components of stress tensor \(hartree/bohr\^3\)\s*$",
                        coverageIgnore=True),
-                    SM(r"\s*sigma\(1 1\)=\s*[-+0-9.eEdD]+\s*sigma\(3 2\)=\s*[-+0-9.eEdD]+\s*$",
+                    SM(r"\s*sigma\(1 1\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*sigma\(3 2\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$",
                        coverageIgnore=True),
-                    SM(r"\s*sigma\(2 2\)=\s*[-+0-9.eEdD]+\s*sigma\(3 1\)=\s*[-+0-9.eEdD]+\s*$",
+                    SM(r"\s*sigma\(2 2\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*sigma\(3 1\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$",
                        coverageIgnore=True),
-                    SM(r"\s*sigma\(3 3\)=\s*[-+0-9.eEdD]+\s*sigma\(2 1\)=\s*[-+0-9.eEdD]+\s*$",
+                    SM(r"\s*sigma\(3 3\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*sigma\(2 1\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$",
                        coverageIgnore=True),
-                    SM(r"-Cartesian components of stress tensor \(GPa\)\s*\[Pressure=\s*[-+0-9.eEdD]+\s*GPa]\s*$",
+                    SM(r"-Cartesian components of stress tensor \(GPa\)\s*\[Pressure=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*GPa]\s*$",
                        coverageIgnore=True),
-                    SM(r"- sigma\(1 1\)=\s*[-+0-9.eEdD]+\s*sigma\(3 2\)=\s*[-+0-9.eEdD]+\s*$",
+                    SM(r"- sigma\(1 1\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*sigma\(3 2\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$",
                        coverageIgnore=True),
-                    SM(r"- sigma\(2 2\)=\s*[-+0-9.eEdD]+\s*sigma\(3 1\)=\s*[-+0-9.eEdD]+\s*$",
+                    SM(r"- sigma\(2 2\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*sigma\(3 1\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$",
                        coverageIgnore=True),
-                    SM(r"- sigma\(3 3\)=\s*[-+0-9.eEdD]+\s*sigma\(2 1\)=\s*[-+0-9.eEdD]+\s*$",
+                    SM(r"- sigma\(3 3\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*sigma\(2 1\)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$",
                        coverageIgnore=True)
                     ]
        )
@@ -843,33 +843,33 @@ SCFOutput = \
        startReStr=r"-{3}OUTPUT-{71}\s*$",
        required=False,
        subMatchers=[SM(startReStr=r"\s*Cartesian coordinates \(xcart\) \[bohr\]\s*$",
-                       subMatchers=[SM(r"\s*(?P<x_abinit_atom_xcart>(\s*[-+0-9.eEdD]+){3})\s*$",
+                       subMatchers=[SM(r"\s*(?P<x_abinit_atom_xcart>(\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){3})\s*$",
                                        repeats=True)]
                        ),
                     SM(startReStr=r"\s*Reduced coordinates \(xred\)\s*$",
-                       subMatchers=[SM(r"\s*(\s*[-+0-9.eEdD]+){3}\s*$",
+                       subMatchers=[SM(r"\s*(\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){3}\s*$",
                                        repeats=True)]
                        ),
-                    SM(startReStr=r"\s*Cartesian forces \(fcart\) \[Ha/bohr\]; max,rms=(\s*[-+0-9.eEdD]+){2}\s*"
+                    SM(startReStr=r"\s*Cartesian forces \(fcart\) \[Ha/bohr\]; max,rms=(\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){2}\s*"
                                   r"\(free atoms\)\s*$",
-                       subMatchers=[SM(r"\s*(?P<x_abinit_atom_force>(\s*[-+0-9.eEdD]+){3})\s*$",
+                       subMatchers=[SM(r"\s*(?P<x_abinit_atom_force>(\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){3})\s*$",
                                        repeats=True)]
                        ),
                     SM(startReStr=r"\s*Reduced forces \(fred\)\s*",
-                       subMatchers=[SM(r"\s*(\s*[-+0-9.eEdD]+){3}\s*$",
+                       subMatchers=[SM(r"\s*(\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?){3}\s*$",
                                        repeats=True)]
                        ),
-                    SM(r"\s*Total energy \(etotal\) \[Ha\]=\s*(?P<energy_total__hartree>[-+0-9.eEdD]+)\s*$"),
+                    SM(r"\s*Total energy \(etotal\) \[Ha\]=\s*(?P<energy_total__hartree>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
                     SM(r"\s*Difference of energy with previous step \(new-old\):\s*$",
                        coverageIgnore=True),
-                    SM(r"\s*Absolute \(Ha\)=[-+0-9.eEdD]+\s*$"),
-                    SM(r"\s*Relative\s*=[-+0-9.eEdD]+\s*$"),
+                    SM(r"\s*Absolute \(Ha\)=[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$"),
+                    SM(r"\s*Relative\s*=[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$"),
                     SM(r"fconv : WARNING -\s*$",
                        coverageIgnore=True),
                     SM(r"\s*(At Broyd/MD step\s*\d+\s*, gradients|ntime=\s*\d+\s*was|fconv : at Broyd/MD step\s*\d+\s*, gradients have) "
                        r"(?P<x_abinit_geometry_optimization_converged>(are converged|not enough|not converged)) "
                        r"(:|Broyd/MD steps to converge gradients:|yet.)\s*$"),
-                    SM(r"\s*max grad \(force/stress\) =\s*[-+0-9.eEdD]+\s*< tolmxf=\s*[-+0-9.eEdD]+\s*ha/bohr \(free atoms\)\s*")
+                    SM(r"\s*max grad \(force/stress\) =\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*< tolmxf=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*ha/bohr \(free atoms\)\s*")
                     ]
        )
 
@@ -884,25 +884,25 @@ SCFCycleMatcher = \
                        coverageIgnore=True),
                     SM(r"---SELF-CONSISTENT-FIELD CONVERGENCE-{44}",
                        coverageIgnore=True),
-                    SM(r"(\s*|-)ETOT\s*[0-9]+\s*(?P<energy_total_scf_iteration__hartree>[-+0-9.eEdD]+)\s*"
-                       r"(?P<energy_change_scf_iteration__hartree>[-+0-9.eEdD]+)(\s*[-+0-9.eEdD]*)*",
+                    SM(r"(\s*|-)ETOT\s*[0-9]+\s*(?P<energy_total_scf_iteration__hartree>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*"
+                       r"(?P<energy_change_scf_iteration__hartree>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)(\s*[-+0-9.eEdD]*)*",
                        sections=["section_scf_iteration"],
                        repeats=True),
                     SM(r"\s*At SCF step\s*(?P<number_of_scf_iterations>[0-9]+)\s*"
-                       r"(, etot|, forces|vres2\s*=\s*[-+0-9.eEdD]+\s*<\s*tolvrs=\s*[-+0-9.eEdD]+\s*=>)\s*"
+                       r"(, etot|, forces|vres2\s*=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*<\s*tolvrs=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*=>)\s*"
                        r"(?P<x_abinit_single_configuration_calculation_converged>(is converged|are converged|converged))"
                        r"\s*(:|.)\s*$"),
-                    SM(r"\s*for the second time, (max diff in force|diff in etot)=\s*[-+0-9.eEdD]+\s*<\s*tol(dfe|dff)="
-                       r"\s*[-+0-9.eEdD]+\s*$"),
+                    SM(r"\s*for the second time, (max diff in force|diff in etot)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*<\s*tol(dfe|dff)="
+                       r"\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$"),
                     SM(startReStr=r"\s*Cartesian components of stress tensor \(hartree/bohr\^3\)\s*$",
                        coverageIgnore=True,
                        sections=["x_abinit_section_stress_tensor"],
-                       subMatchers=[SM(r"\s*sigma\(1 1\)=\s*(?P<x_abinit_stress_tensor_xx>[-+0-9.eEdD]+)"
-                                       r"\s*sigma\(3 2\)=\s*(?P<x_abinit_stress_tensor_zy>[-+0-9.eEdD]+)\s*$"),
-                                    SM(r"\s*sigma\(2 2\)=\s*(?P<x_abinit_stress_tensor_yy>[-+0-9.eEdD]+)"
-                                       r"\s*sigma\(3 1\)=\s*(?P<x_abinit_stress_tensor_zx>[-+0-9.eEdD]+)\s*$"),
-                                    SM(r"\s*sigma\(3 3\)=\s*(?P<x_abinit_stress_tensor_zz>[-+0-9.eEdD]+)"
-                                       r"\s*sigma\(2 1\)=\s*(?P<x_abinit_stress_tensor_yx>[-+0-9.eEdD]+)\s*$")
+                       subMatchers=[SM(r"\s*sigma\(1 1\)=\s*(?P<x_abinit_stress_tensor_xx>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)"
+                                       r"\s*sigma\(3 2\)=\s*(?P<x_abinit_stress_tensor_zy>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+                                    SM(r"\s*sigma\(2 2\)=\s*(?P<x_abinit_stress_tensor_yy>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)"
+                                       r"\s*sigma\(3 1\)=\s*(?P<x_abinit_stress_tensor_zx>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+                                    SM(r"\s*sigma\(3 3\)=\s*(?P<x_abinit_stress_tensor_zz>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)"
+                                       r"\s*sigma\(2 1\)=\s*(?P<x_abinit_stress_tensor_yx>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$")
                                     ]
                        ),
                     SM(startReStr=r"\s*Integrated electronic density in atomic spheres:\s*$",
@@ -978,10 +978,10 @@ pseudopotentialMatcher = \
                        coverageIgnore=True),
                     SM(r"\s*However, this does not influence the results obtained hereafter.\s*$",
                        coverageIgnore=True),
-                    SM(r"\s*pspatm: epsatm=\s*[-+0-9.eEdD]+\s*$"),
+                    SM(r"\s*pspatm: epsatm=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$"),
                     SM(r"\s*--- l  ekb\(1:nproj\) -->\s*$",
                        coverageIgnore=True),
-                    SM(r"\s*\d+\s*[-+0-9.eEdD]+\s*$",
+                    SM(r"\s*\d+\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$",
                        repeats=True)
                     ]
        )
@@ -1018,7 +1018,7 @@ datasetHeaderMatcher = \
                     SM(r"--- Pseudopotential description ------------------------------------------------",
                        coverageIgnore=True),
                     pseudopotentialMatcher,
-                    SM(r"\s*[-+0-9.eEdD]+\s*ecore\*ucvol\(ha\*bohr\*\*3\)\s*$",
+                    SM(r"\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*ecore\*ucvol\(ha\*bohr\*\*3\)\s*$",
                        coverageIgnore=True),
                     SM(r"-{80}",
                        coverageIgnore=True),
