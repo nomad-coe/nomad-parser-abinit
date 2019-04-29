@@ -291,7 +291,11 @@ class ABINITContext(object):
 
         self.initial_simulation_cell = []
         for axis in [1, 2, 3]:
-            self.initial_simulation_cell.append(section["x_abinit_vprim_%s" % axis][-1].split())
+            # FAIRD edit (dts@physik.hu-berlin.de), the split is failing for negative
+            # decimals in the third column. It gives "2.7 2.7-2.7" for some reason.
+            # We need to add a whitespace to split nicely.
+            self.initial_simulation_cell.append(
+               section["x_abinit_vprim_%s" % axis][-1].replace('-',' -').split())
 
     def onClose_section_method(self, backend, gIndex, section):
         """Trigger called when section_method is closed.
@@ -361,12 +365,14 @@ class ABINITContext(object):
             symbol = chemical_symbols[int(z)]
             species_count[symbol] += 1
             atom_types.append(symbol+str(species_count[symbol]))
-
+        # Grabs an array with the dtype of meta name atom_labels and
+        # shape of self.input('x_abinit..').
         atom_labels = backend.arrayForMetaInfo("atom_labels", self.input["x_abinit_var_natom"][-1])
 
         for atom_index in range(self.input["x_abinit_var_natom"][-1]):
             atom_labels[atom_index] = atom_types[self.input["x_abinit_var_typat"][-1][atom_index] - 1]
 
+        # NOMAD-FAIRD (dts@physik.hu-berlin.de)
         # We end up with a list of atom labels. The problem is that the ase library
         # compalains about receiving lists such as ['F2', 'B', C']. The 2 in the F is the
         # problem. So let's join the strings in the list. Ase still won't like
@@ -385,7 +391,7 @@ class ABINITContext(object):
             atom_xcart_list = None
         n_atom = self.input["x_abinit_var_natom"][-1]
         if atom_xcart_list is not None:
-            atom_xcart = backend.arrayForMetaInfo("atom_positions", [n_atom,3])
+            atom_xcart = backend.arrayForMetaInfo("atom_positions", [n_atom, 3])
             for iatom in range(n_atom):
                 for dir in range(3):
                     atom_xcart[iatom, dir] = float(atom_xcart_list[iatom].split()[dir])
