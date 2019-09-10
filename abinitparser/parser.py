@@ -364,22 +364,19 @@ class ABINITContext(object):
         for z in self.input["x_abinit_var_znucl"][-1]:
             symbol = chemical_symbols[int(z)]
             species_count[symbol] += 1
-            atom_types.append(symbol+str(species_count[symbol]))
+            if species_count[symbol] > 1:
+               atom_type = symbol + str(species_count[symbol])
+            else:
+               atom_type = symbol
+            atom_types.append(atom_type)
+
         # Grabs an array with the dtype of meta name atom_labels and
         # shape of self.input('x_abinit..').
         atom_labels = backend.arrayForMetaInfo("atom_labels", self.input["x_abinit_var_natom"][-1])
 
         for atom_index in range(self.input["x_abinit_var_natom"][-1]):
             atom_labels[atom_index] = atom_types[self.input["x_abinit_var_typat"][-1][atom_index] - 1]
-
-        # NOMAD-FAIRD (dts@physik.hu-berlin.de)
-        # We end up with a list of atom labels. The problem is that the ase library
-        # compalains about receiving lists such as ['F2', 'B', C']. The 2 in the F is the
-        # problem. So let's join the strings in the list. Ase still won't like
-        # ['F2BC'] so we return the string inside the list instead.
-        atom_labels_nomad_faird = ''.join(atom_labels)
-        backend.addArrayValues("atom_labels", atom_labels_nomad_faird)
-
+        backend.addArrayValues("atom_labels", atom_labels)
 
         if section["x_abinit_atom_xcart"] is not None:
             atom_xcart_list = section["x_abinit_atom_xcart"]
