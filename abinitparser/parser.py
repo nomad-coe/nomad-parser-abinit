@@ -376,6 +376,7 @@ class ABINITContext(object):
 
         for atom_index in range(self.input["x_abinit_var_natom"][-1]):
             atom_labels[atom_index] = atom_types[self.input["x_abinit_var_typat"][-1][atom_index] - 1]
+
         backend.addArrayValues("atom_labels", atom_labels)
 
         if section["x_abinit_atom_xcart"] is not None:
