@@ -152,7 +152,7 @@ class ABINITContext(object):
 
         if self.input["x_abinit_var_tolmxf"] is not None:
             backend.addValue("geometry_optimization_threshold_force",
-                             unit_conversion.convert_unit(self.input["x_abinit_var_tolmxf"][-1], "forceAu"))
+                             unit_conversion.convert_unit(self.input["x_abinit_var_tolmxf"][-1], "hartree / bohr"))
         if self.input["x_abinit_var_tolmxde"] is not None:
             backend.addValue("geometry_optimization_energy_change",
                              unit_conversion.convert_unit(self.input["x_abinit_var_tolmxde"][-1], "hartree"))
@@ -200,7 +200,7 @@ class ABINITContext(object):
             n_atom = 0
             for force_string in atom_forces_list:
                 for dir in range(3):
-                    atom_forces[n_atom, dir] = unit_conversion.convert_unit(float(force_string.split()[dir]), "forceAu")
+                    atom_forces[n_atom, dir] = unit_conversion.convert_unit(float(force_string.split()[dir]), "hartree / bohr")
                 n_atom += 1
             backend.addArrayValues("atom_forces_raw", atom_forces)
 
