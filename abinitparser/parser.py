@@ -52,12 +52,6 @@ ABINIT_GEO_OPTIMIZATION = {
     20: "diis"
 }
 
-# loading metadata from nomad-meta-info/meta_info/nomad_meta_info/abinit.nomadmetainfo.json
-import nomad_meta_info
-metaInfoPath = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(nomad_meta_info.__file__)), "abinit.nomadmetainfo.json"))
-metaInfoEnv, warnings = loadJsonFile(filePath = metaInfoPath, dependencyLoader = None, extraArgsHandling = InfoKindEl.ADD_EXTRA_ARGS, uri = None)
-
-
 class ABINITContext(object):
     """context for the sample parser"""
 
@@ -432,7 +426,7 @@ class ABINITContext(object):
         """Trigger called when x_abinit_section_input is closed.
         """
         dataset_vars = {}
-        for varname in metaInfoEnv.infoKinds.keys():
+        for varname in backend.superBackend.metaInfoEnv().infoKinds.keys():
             if "x_abinit_var_" in varname:
                 dataset_vars[varname] = None
 
@@ -470,7 +464,7 @@ class ABINITContext(object):
 
         for varname, varvalue in dataset_vars.items():
 
-            meta_info = metaInfoEnv.infoKindEl(varname)
+            meta_info = backend.superBackend.metaInfoEnv().infoKindEl(varname)
 
             # Skip optional variables that do not have a value or that are not defined in the meta-info
             if varvalue is None or meta_info is None:
@@ -513,7 +507,11 @@ class ABINITContext(object):
                         for mo in re.finditer(dim_regex, dim):
                             dim = re.sub(mo.group("abi_var"), str(dataset_vars[mo.group("abi_var")]), dim)
                         # In some cases the dimension is given as a numerical expression that needs to be evaluated
-                        dim = eval(dim)
+                        try:
+                           dim = eval(dim)
+                        except SyntaxError as e:
+                           print(dim, meta_info.name, meta_info.shape)
+                           raise e
                     shape.append(dim)
                 backend.addArrayValues(varname, array.reshape(shape))
 
@@ -1149,11 +1147,11 @@ class AbinitParser():
        from unittest.mock import patch
        logging.info('abinit parser started')
        logging.getLogger('nomadcore').setLevel(logging.WARNING)
-       backend = self.backend_factory(metaInfoEnv)
+       backend = self.backend_factory("abinit.nomadmetainfo.json")
        with patch.object(sys, 'argv', ['<exe>', '--uri', 'nmd://uri', mainfile]):
            mainFunction(
                mainFileDescription,
-               metaInfoEnv,
+               None,
                parserInfo,
                cachingLevelForMetaName = {'x_abinit_section_var': CachingLevel.Cache
                                          },
@@ -1161,12 +1159,3 @@ class AbinitParser():
                superBackend=backend)
 
        return backend
-
-if __name__ == "__main__":
-    superContext = ABINITContext()
-    mainFunction(mainFileDescription=mainFileDescription,
-                 metaInfoEnv=metaInfoEnv,
-                 parserInfo=parserInfo,
-                 cachingLevelForMetaName={'x_abinit_section_var': CachingLevel.Cache
-                                          },
-                 superContext=superContext)
