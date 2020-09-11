@@ -1,10 +1,10 @@
-code-label: 'ABINIT'
-code-label-style: all in capitals
-code-url: https://www.abinit.org/
-parser-dir-name: dependencies/parsers/abinit/
-parser-git-url: https://gitlab.mpcdf.mpg.de/nomad-lab/parser-abinit
-parser-specific: ''
-table-of-files: |
+codeLabel: 'ABINIT'
+codeLabelStyle: all in capitals
+codeUrl: https://www.abinit.org/
+parserDirName: dependencies/parsers/abinit/
+parserGitUrl: https://gitlab.mpcdf.mpg.de/nomad-lab/parser-abinit
+parserSpecific: ''
+tableOfFiles: |
   |Input Filename| Description|
   |--- | --- |
   |`*.out` | **Mainfile:** a plain text file w/ **user-defined** name|
