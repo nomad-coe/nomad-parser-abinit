@@ -28,6 +28,11 @@ import logging
 import time
 import sys
 
+from nomad.datamodel.metainfo.public import section_dos
+
+# from abinitparser.parser_classes import *  # NEW TMK:
+from nomad.units import ureg # NEW TMK:
+
 try:
     basestring
 except NameError:
@@ -56,6 +61,7 @@ class ABINITContext(object):
     """context for the sample parser"""
 
     def __init__(self):
+        self.input_filename = None
         self.parser = None
         self.current_dataset = None
         self.abinitVars = None
@@ -87,7 +93,9 @@ class ABINITContext(object):
 
     def startedParsing(self, filename, parser):
         """called when parsing starts"""
+        self.input_filename = filename
         self.parser = parser
+
         # allows to reset values if the same superContext is used to parse different files
         self.initialize_values()
 
@@ -101,6 +109,97 @@ class ABINITContext(object):
             abi_time = time.strptime(str("%s %s") % (section["x_abinit_start_date"][-1],
                                                      section["x_abinit_start_time"][-1]), "%a %d %b %Y %Hh%M")
             backend.addValue("time_run_date_start", time.mktime(abi_time))
+
+         # ################
+         # Code for DOS
+
+        sscc = backend.superBackend['section_single_configuration_calculation']
+
+        num_datasets = len(sscc)  # we wish to pick the last DOS
+        fname_base = (self.input_filename).split('.out')[0]
+        fname_dos = fname_base + f'o_DS{num_datasets}_DOS'
+
+        print(f'number of ABINIT datasets: {num_datasets}') # logger.warn()
+        print(f'\nReading: {fname_dos}\n')
+
+        with open(fname_dos, 'r') as textfile:
+          body = textfile.read()
+
+        # ID energy units
+        m = re.search(r'^#\s*energy*\((?P<energy_unit>\w*)\)', body, re.MULTILINE)
+        if m:
+          energy_unit = m.group('energy_unit')
+          if energy_unit == 'Ha':
+             ureg_unit = ureg.a_u_energy
+          elif energy_unit == 'eV':
+             ureg_unit = ureg.ureg.eV
+
+
+        # Pick up Fermi energy
+        m = re.search(r'^#\s*Fermi energy :\s*(?P<fermi_energy>\d*\.\d*)', body, re.MULTILINE)
+        if m:
+         energy_fermi = m.group('fermi_energy') * ureg_unit
+
+        print(f'energy_unit:  {energy_unit}\n')
+        print(f'fermi energy: {energy_fermi}')
+
+
+        try:
+          dos_data = np.genfromtxt(fname_dos)
+          dos_energies = dos_data[:, 0] * ureg_unit  # ToDo: times unitCellVol (as in exciting)
+          dos_values = dos_data[:, 1]   # ToDo: plus fermiEnergy; inverse_units
+        except FileNotFoundError:
+          logger.warning(f'File not found: {fname_dos}')
+        except Exception as err:
+          logger.error(f'Exception on {__file__}', exc_info=err)
+
+
+        print('VARIABLES:')
+        print(f'\tdos_energies.shape: {dos_energies.shape}')
+        print(f'\tdos_values.shape:   {dos_values.shape}\n')
+
+        print(f'\tdos energies: {dos_energies}')
+        print(f'\tdos values: {dos_values}\n')
+
+
+
+        if 1==2:
+         for level1 in sscc:
+            print('\n')
+            for level2 in level1:
+               print(level2)
+
+        if 1==2:
+            # To get quantities of a given section
+            print(Run.m_def.m_get_sub_sections(Section.quantities))
+
+            # Or all Sections in the package
+            print(m_package.m_get_sub_sections(Package.section_definitions))
+
+            # There are also some definition specific helper methods.
+            # For example to get all attributes (Quantities and possible sub-sections) of a section.
+            print(Run.m_def.all_properties)
+
+        # Demonstration on how to use the definitions, e.g. to create a run with system:
+        backend = backend.superBackend
+
+        print(backend, type(backend))
+
+        sscc = backend.entry_archive.section_run[0].section_single_configuration_calculation[-1]
+
+
+        dos_sec = sscc.m_create(section_dos)
+        dos_sec.dos_energies = dos_energies
+        dos_sec.dos_values = dos_values
+
+        print('METADATA :')
+        print(f'dos_sec.dos_energies: {dos_sec.dos_energies }')
+        print(f'dos_sec.dos_values: {dos_sec.dos_values}'+'\n'*3)
+
+         # # Code for DOS: end
+         #################################
+
+
 
     def onOpen_x_abinit_section_dataset(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is opened.
