@@ -110,6 +110,14 @@ class x_abinit_section_dataset_header(MSection):
         ''',
         a_legacy=LegacyDefinition(name='x_abinit_vprim_3'))
 
+    x_abinit_unit_cell_volume = Quantity(
+        type=str,
+        shape=[],
+        description='''
+        Unit cell volume
+        ''',
+        a_legacy=LegacyDefinition(name='x_abinit_unit_cell_volume')) # OK 'legacy'?
+
 
 class x_abinit_section_var(MSection):
     '''
