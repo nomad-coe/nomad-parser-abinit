@@ -111,7 +111,8 @@ class x_abinit_section_dataset_header(MSection):
         a_legacy=LegacyDefinition(name='x_abinit_vprim_3'))
 
     x_abinit_unit_cell_volume = Quantity(
-        type=str,
+        type=np.dtype(np.float64),
+        unit='meter**3',
         shape=[],
         description='''
         Unit cell volume
