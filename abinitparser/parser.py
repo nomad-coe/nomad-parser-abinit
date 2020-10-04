@@ -40,8 +40,8 @@ except NameError:
 logger = logging.getLogger("nomad.ABINITParser")
 
 parserInfo = {
-  "name": "ABINIT_parser",
-  "version": "1.0"
+    "name": "ABINIT_parser",
+    "version": "1.0"
 }
 
 ABINIT_GEO_OPTIMIZATION = {
@@ -55,6 +55,7 @@ ABINIT_GEO_OPTIMIZATION = {
     11: "dic_bfgs",
     20: "diis"
 }
+
 
 class ABINITContext(object):
     """context for the sample parser"""
@@ -131,8 +132,10 @@ class ABINITContext(object):
     def onClose_section_frame_sequence(self, backend, gIndex, section):
         """Trigger called when section_framce_sequence is closed.
         """
-        backend.addValue("number_of_frames_in_sequence", len(self.frameSequence))
-        backend.addArrayValues("frame_sequence_local_frames_ref", np.array(self.frameSequence))
+        backend.addValue("number_of_frames_in_sequence",
+                         len(self.frameSequence))
+        backend.addArrayValues(
+            "frame_sequence_local_frames_ref", np.array(self.frameSequence))
         backend.addValue("frame_sequence_to_sampling_ref", self.samplingGIndex)
 
     def onClose_section_sampling_method(self, backend, gIndex, section):
@@ -142,7 +145,8 @@ class ABINITContext(object):
             ionmov = self.input["x_abinit_var_ionmov"][-1]
             if ionmov in [2, 3, 4, 5, 7, 10, 11, 20] or (ionmov == 1 and self.input["x_abinit_var_vis"] > 0.0):
                 sampling_method = "geometry_optimization"
-                backend.addValue("geometry_optimization_method", ABINIT_GEO_OPTIMIZATION[ionmov])
+                backend.addValue("geometry_optimization_method",
+                                 ABINIT_GEO_OPTIMIZATION[ionmov])
             elif ionmov in [6, 8, 12, 13, 14, 23] or (ionmov == 1 and self.input["x_abinit_var_vis"] == 0.0):
                 sampling_method = "molecular_dynamics"
             elif ionmov == 9:
@@ -162,8 +166,10 @@ class ABINITContext(object):
         """Trigger called when section_single_configuration_calculation is opened.
         """
         self.systemGIndex = backend.openSection("section_system")
-        backend.addValue("single_configuration_calculation_to_system_ref", self.systemGIndex)
-        backend.addValue("single_configuration_to_calculation_method_ref", self.methodGIndex)
+        backend.addValue(
+            "single_configuration_calculation_to_system_ref", self.systemGIndex)
+        backend.addValue(
+            "single_configuration_to_calculation_method_ref", self.methodGIndex)
         self.frameSequence.append(gIndex)
 
     def onClose_section_single_configuration_calculation(self, backend, gIndex, section):
@@ -177,10 +183,12 @@ class ABINITContext(object):
                section["x_abinit_single_configuration_calculation_converged"][-1] == "converged" or \
                section["x_abinit_single_configuration_calculation_converged"][-1] == "are converged":
                 converged = True
-        backend.addValue("single_configuration_calculation_converged", converged)
+        backend.addValue(
+            "single_configuration_calculation_converged", converged)
 
         if section["x_abinit_energy_xc"] is not None:
-            backend.addValue("energy_XC", unit_conversion.convert_unit(section["x_abinit_energy_xc"][-1], "hartree"))
+            backend.addValue("energy_XC", unit_conversion.convert_unit(
+                section["x_abinit_energy_xc"][-1], "hartree"))
         if section["x_abinit_energy_kinetic"] is not None:
             backend.addValue("electronic_kinetic_energy",
                              unit_conversion.convert_unit(section["x_abinit_energy_kinetic"][-1], "hartree"))
@@ -197,18 +205,20 @@ class ABINITContext(object):
             atom_forces_list = None
 
         if atom_forces_list is not None:
-            atom_forces = backend.arrayForMetaInfo("atom_forces_raw", [self.input["x_abinit_var_natom"][-1],3])
+            atom_forces = backend.arrayForMetaInfo(
+                "atom_forces_raw", [self.input["x_abinit_var_natom"][-1], 3])
             n_atom = 0
             for force_string in atom_forces_list:
                 for dir in range(3):
-                    atom_forces[n_atom, dir] = unit_conversion.convert_unit(float(force_string.split()[dir]), "hartree / bohr")
+                    atom_forces[n_atom, dir] = unit_conversion.convert_unit(
+                        float(force_string.split()[dir]), "hartree / bohr")
                 n_atom += 1
             backend.addArrayValues("atom_forces_raw", atom_forces)
 
         # Fermi energy found in mainfile (can also be retrieved from _DOS file)
         if section["x_abinit_fermi_energy"] is not None:
             backend.addArrayValues("energy_reference_fermi",
-                                    np.array([unit_conversion.convert_unit(section["x_abinit_fermi_energy"][-1], "hartree")]))
+                                   np.array([unit_conversion.convert_unit(section["x_abinit_fermi_energy"][-1], "hartree")]))
 
         # #########################
         # DOS CODE
@@ -230,114 +240,127 @@ class ABINITContext(object):
         fname_dos = glob.glob(dosfile_pattern)
 
         if len(fname_dos) == 1:
-           fname_dos = fname_dos[0]
-           dos_file_exists = True
+            fname_dos = fname_dos[0]
+            dos_file_exists = True
         elif len(fname_dos) == 0 and sscc_idx == 1:
-           # catch a run with one dataset, e.g., `BASEo_DOS`
-           dosfile_pattern = mainfile_base + 'o_DOS'
-           fname_dos = glob.glob(dosfile_pattern)
-           if len(fname_dos) == 0:
-              dos_file_exists = False
-           else:
-              fname_dos = fname_dos[0]
-              dos_file_exists = True
-        else: # more than one file matches pattern (unexpected)
+            # catch a run with one dataset, e.g., `BASEo_DOS`
+            dosfile_pattern = mainfile_base + 'o_DOS'
+            fname_dos = glob.glob(dosfile_pattern)
+            if len(fname_dos) == 0:
+                dos_file_exists = False
+            else:
+                fname_dos = fname_dos[0]
+                dos_file_exists = True
+        elif len(fname_dos) == 0:
+            dos_file_exists = False
+            logger.warning('DOS file not found.')
+        elif len(fname_dos) > 1:
+             # more than one file matches pattern (unexpected)
             dos_file_exists = False
             logger.warning('Multiple DOS filenames matching expected pattern.')
 
         # DOS file: open
         if dos_file_exists:
-         try:
-            with open(fname_dos, 'r') as textfile:
-               body = textfile.read()
-         except FileNotFoundError:
-            logger.warning(f'File not found: {fname_dos}')
-         except Exception as err:
-            logger.error(f'Exception on {__file__}', exc_info=err)
-
-         # DOS file: identify energy units
-         regex = r'\s*at\s*(?P<num_dos_values>\d*)\s*energies\s*\(in\s*(?P<energy_unit>\w*)\)'
-         match = re.search(regex, body, re.MULTILINE)
-         if match:
-            num_dos_values = int(match.group('num_dos_values'))
-            energy_unit = match.group('energy_unit')
-            if energy_unit == 'Hartree':
-               units_dos_file = ureg.a_u_energy
-            elif energy_unit == 'eV':
-               units_dos_file = ureg.eV
-
-         # DOS file: pick up Fermi energy
-         match = re.search(r'^#\s*Fermi energy :\s*(?P<fermi_energy>[-+]*\d*\.\d*)', body, re.MULTILINE)
-         if match:
-            # `fermiFU`: energy_fermi with `file` units (eV or Hartree)
-            fermiFU = float(match.group('fermi_energy')) * units_dos_file
-            fermi_energy_J = fermiFU.to(ureg.J) # normalizer expects Joules
-
             try:
-               # if Fermi was found in mainfile, then confirm it matches dos file
-               if fermi_energy_mainfile is not None:
-                  assert np.allclose(fermi_energy_mainfile, fermi_energy_J)
-            except AssertionError as error_msg:
-               logger.error('fermi mismatch ', error_msg)
+                with open(fname_dos, 'r') as textfile:
+                    body = textfile.read()
+            except FileNotFoundError:
+                logger.warning(f'File not found: {fname_dos}')
+            except Exception as err:
+                logger.error(f'Exception on {__file__}', exc_info=err)
 
-            # normalizer expects numpy array of shape (1,) without units (needs `ndmin=1`)
-            sscc_last.energy_reference_fermi = np.array(fermi_energy_J.magnitude, ndmin=1)
+            # DOS file: identify energy units
+            regex = r'\s*at\s*(?P<num_dos_values>\d*)\s*energies\s*\(in\s*(?P<energy_unit>\w*)\)'
+            match = re.search(regex, body, re.MULTILINE)
+            if match:
+                num_dos_values = int(match.group('num_dos_values'))
+                energy_unit = match.group('energy_unit')
+                if energy_unit == 'Hartree':
+                    units_dos_file = ureg.a_u_energy
+                elif energy_unit == 'eV':
+                    units_dos_file = ureg.eV
 
-         # DOS file: open it again, this time directly to a Numpy array
-         try:
-            dos_data = np.genfromtxt(fname_dos)
-         except FileNotFoundError:
-            logger.warning(f'File not found: {fname_dos}')
-         except Exception as err:
-            logger.error(f'Exception on {__file__}', exc_info=err)
+            # DOS file: pick up Fermi energy
+            match = re.search(
+                r'^#\s*Fermi energy :\s*(?P<fermi_energy>[-+]*\d*\.\d*)', body, re.MULTILINE)
+            if match:
+                # `fermiFU`: energy_fermi with `file` units (eV or Hartree)
+                fermiFU = float(match.group('fermi_energy')) * units_dos_file
+                # normalizer expects Joules
+                fermi_energy_J = fermiFU.to(ureg.J)
 
-         # Slice `dos_data` according to `num_dos_values`. Doing so way we treat
-         # correctly the number of spin levels
-         if dos_data.shape[0] == num_dos_values:
-            spin_treat = False
-         else:
-            spin_treat = True
+                try:
+                    # if Fermi was found in mainfile, then confirm it matches dos file
+                    if fermi_energy_mainfile is not None:
+                        assert np.allclose(
+                            fermi_energy_mainfile, fermi_energy_J)
+                except AssertionError as error_msg:
+                    logger.error('fermi mismatch ', error_msg)
 
-         dos_energies_Joules = (dos_data[:num_dos_values, 0] * units_dos_file).to(ureg.J)
-         dos_values = np.zeros((2, num_dos_values))
-         dos_values_integrated = np.zeros((2, num_dos_values))
-         if spin_treat:
-            dos_values[0] = dos_data[:num_dos_values, 1] # start till num_dos_values
-            dos_values[1] = dos_data[num_dos_values:, 1] # num_dos_values till end
-            dos_values_integrated[0] = dos_data[:num_dos_values, 2] # likewise
-            dos_values_integrated[1] = dos_data[num_dos_values:, 2]
-         else:
-            dos_values[0] = dos_data[:num_dos_values, 1]
-            dos_values[1] = dos_data[:num_dos_values, 1]
-            dos_values_integrated[0] = dos_data[:num_dos_values, 2]
-            dos_values_integrated[1] = dos_data[:num_dos_values, 2]
+                # normalizer expects numpy array of shape (1,) without units (needs `ndmin=1`)
+                sscc_last.energy_reference_fermi = np.array(
+                    fermi_energy_J.magnitude, ndmin=1)
 
-         # NOMAD metainfo needs dos_values (A) without physical units,
-         # (B) without unit-cell normalization, and (C) without Fermi-energy shift
-         # In ABINIT
-         #   - DOS units are (electrons/Hartree/cell) and
-         #   - integrated DOS are in (in electrons/cell)
-         #   - `_DOS` file has dos_values without Fermi shift,
-         #   - `_DOS` file uses energies in Hartree, regardless of the value
-         #     of ABINIT's variable `enunit` (energy units for bandstructures)
+            # DOS file: open it again, this time directly to a Numpy array
+            try:
+                dos_data = np.genfromtxt(fname_dos)
+            except FileNotFoundError:
+                logger.warning(f'File not found: {fname_dos}')
+            except Exception as err:
+                logger.error(f'Exception on {__file__}', exc_info=err)
 
-         # Retrieve  unit cell volume.
-         # Original value was in 'bohr**3', but the Archive stores it in 'meter**3'
-         # hence we need to convert it back to bohrs**3
-         unit_cell_vol_m3 = sscc_last.m_parent.x_abinit_section_dataset[0].x_abinit_section_dataset_header[0].x_abinit_unit_cell_volume
-         unit_cell_vol_bohr3 = unit_cell_vol_m3.to('bohr**3')
+            # Slice `dos_data` according to `num_dos_values`. Doing so way we treat
+            # correctly the number of spin levels
+            if dos_data.shape[0] == num_dos_values:
+                spin_treat = False
+            else:
+                spin_treat = True
 
-         dos_values = dos_values * unit_cell_vol_bohr3.magnitude
-         dos_values_integrated = dos_values_integrated * unit_cell_vol_bohr3.magnitude
+            dos_energies_Joules = (
+                dos_data[:num_dos_values, 0] * units_dos_file).to(ureg.J)
+            dos_values = np.zeros((2, num_dos_values))
+            dos_values_integrated = np.zeros((2, num_dos_values))
+            if spin_treat:
+                # start till num_dos_values
+                dos_values[0] = dos_data[:num_dos_values, 1]
+                # num_dos_values till end
+                dos_values[1] = dos_data[num_dos_values:, 1]
+                # likewise
+                dos_values_integrated[0] = dos_data[:num_dos_values, 2]
+                dos_values_integrated[1] = dos_data[num_dos_values:, 2]
+            else:
+                dos_values[0] = dos_data[:num_dos_values, 1]
+                dos_values[1] = dos_data[:num_dos_values, 1]
+                dos_values_integrated[0] = dos_data[:num_dos_values, 2]
+                dos_values_integrated[1] = dos_data[:num_dos_values, 2]
 
-         # SECTION DOS: creation and filling
-         dos_sec = sscc_last.m_create(section_dos)
-         dos_sec.dos_kind = 'electronic'
-         dos_sec.number_of_dos_values = dos_values.shape[0]
-         dos_sec.dos_energies = dos_energies_Joules
+            # NOMAD metainfo needs dos_values (A) without physical units,
+            # (B) without unit-cell normalization, and (C) without Fermi-energy shift
+            # In ABINIT
+            #   - DOS units are (electrons/Hartree/cell) and
+            #   - integrated DOS are in (in electrons/cell)
+            #   - `_DOS` file has dos_values without Fermi shift,
+            #   - `_DOS` file uses energies in Hartree, regardless of the value
+            #     of ABINIT's variable `enunit` (energy units for bandstructures)
 
-         dos_sec.dos_values = dos_values
-         dos_sec.dos_integrated_values = dos_values_integrated
+            # Retrieve  unit cell volume.
+            # Original value was in 'bohr**3', but the Archive stores it in 'meter**3'
+            # hence we need to convert it back to bohrs**3
+            unit_cell_vol_m3 = sscc_last.m_parent.x_abinit_section_dataset[
+                0].x_abinit_section_dataset_header[0].x_abinit_unit_cell_volume
+            unit_cell_vol_bohr3 = unit_cell_vol_m3.to('bohr**3')
+
+            dos_values = dos_values * unit_cell_vol_bohr3.magnitude
+            dos_values_integrated = dos_values_integrated * unit_cell_vol_bohr3.magnitude
+
+            # SECTION DOS: creation and filling
+            dos_sec = sscc_last.m_create(section_dos)
+            dos_sec.dos_kind = 'electronic'
+            dos_sec.number_of_dos_values = dos_values.shape[0]
+            dos_sec.dos_energies = dos_energies_Joules
+
+            dos_sec.dos_values = dos_values
+            dos_sec.dos_integrated_values = dos_values_integrated
         # Code for DOS: end
         #################################
 
@@ -354,7 +377,8 @@ class ABINITContext(object):
                     break
 
         if nband == 0:
-            logger.warn("Number of bands in this calculation is k-point dependent.")
+            logger.warn(
+                "Number of bands in this calculation is k-point dependent.")
         else:
             if section["x_abinit_eigenvalues"] is not None:
                 if len(section["x_abinit_eigenvalues"]) == 1:
@@ -365,7 +389,8 @@ class ABINITContext(object):
             else:
                 abi_eigenvalues = []
                 logger.warn("Eigenvalues are not available.")
-            eigenvalues = np.array([unit_conversion.convert_unit(float(x), "hartree") for x in abi_eigenvalues])
+            eigenvalues = np.array([unit_conversion.convert_unit(
+                float(x), "hartree") for x in abi_eigenvalues])
 
             if section["x_abinit_occupations"] is not None:
                 if len(section["x_abinit_occupations"]) == 1:
@@ -386,7 +411,8 @@ class ABINITContext(object):
                     abi_kpoints.append([float(x) for x in kpt.split()])
             elif self.input["x_abinit_var_kpt"] is not None:
                 for ikpt in range(nkpt):
-                    abi_kpoints.append([float(x) for x in self.input["x_abinit_var_kpt"][-1][ikpt]])
+                    abi_kpoints.append(
+                        [float(x) for x in self.input["x_abinit_var_kpt"][-1][ikpt]])
             else:
                 logger.warn("K-points are not available.")
             kpoints = np.array(abi_kpoints)
@@ -396,8 +422,10 @@ class ABINITContext(object):
                 backend.addValue("number_of_eigenvalues", nband)
                 backend.addValue("number_of_eigenvalues_kpoints", nkpt)
                 backend.addArrayValues("eigenvalues_kpoints", kpoints)
-                backend.addArrayValues("eigenvalues_values", eigenvalues.reshape([nspin, nkpt, nband]))
-                backend.addArrayValues("eigenvalues_occupation", occupations.reshape([nspin, nkpt, nband]))
+                backend.addArrayValues(
+                    "eigenvalues_values", eigenvalues.reshape([nspin, nkpt, nband]))
+                backend.addArrayValues(
+                    "eigenvalues_occupation", occupations.reshape([nspin, nkpt, nband]))
 
     def onOpen_x_abinit_section_dataset_header(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is opened.
@@ -410,14 +438,16 @@ class ABINITContext(object):
         self.current_dataset = section["x_abinit_dataset_number"][-1]
         backend.closeSection("x_abinit_section_input", self.inputGIndex)
 
-        self.basisGIndex = backend.openSection("section_basis_set_cell_dependent")
+        self.basisGIndex = backend.openSection(
+            "section_basis_set_cell_dependent")
         backend.addValue("basis_set_cell_dependent_kind", "plane_waves")
         if self.input["x_abinit_var_ecut"] is not None:
             backend.addValue("basis_set_planewave_cutoff",
                              unit_conversion.convert_unit(self.input["x_abinit_var_ecut"][-1], 'hartree'))
         backend.addValue("basis_set_cell_dependent_name",
-                         "PW_%s"%(unit_conversion.convert_unit(self.input["x_abinit_var_ecut"][-1], 'hartree', 'rydberg')))
-        backend.closeSection("section_basis_set_cell_dependent", self.basisGIndex)
+                         "PW_%s" % (unit_conversion.convert_unit(self.input["x_abinit_var_ecut"][-1], 'hartree', 'rydberg')))
+        backend.closeSection(
+            "section_basis_set_cell_dependent", self.basisGIndex)
 
         self.methodGIndex = backend.openSection("section_method")
         backend.closeSection("section_method", self.methodGIndex)
@@ -428,14 +458,16 @@ class ABINITContext(object):
             # decimals in the third column. It gives "2.7 2.7-2.7" for some reason.
             # We need to add a whitespace to split nicely.
             self.initial_simulation_cell.append(
-               section["x_abinit_vprim_%s" % axis][-1].replace('-',' -').split())
+                section["x_abinit_vprim_%s" % axis][-1].replace('-', ' -').split())
 
     def onClose_section_method(self, backend, gIndex, section):
         """Trigger called when section_method is closed.
         """
         backend.addValue("stress_tensor_method", "analytic")
-        backend.addValue("number_of_spin_channels", self.input["x_abinit_var_nsppol"][-1])
-        backend.addValue("scf_max_iteration", self.input["x_abinit_var_nstep"][-1])
+        backend.addValue("number_of_spin_channels",
+                         self.input["x_abinit_var_nsppol"][-1])
+        backend.addValue("scf_max_iteration",
+                         self.input["x_abinit_var_nstep"][-1])
         if self.input["x_abinit_var_toldfe"] is not None:
             backend.addValue("scf_threshold_energy_change",
                              unit_conversion.convert_unit(self.input["x_abinit_var_toldfe"][-1], 'hartree'))
@@ -460,7 +492,8 @@ class ABINITContext(object):
 
         gIndex = backend.openSection("section_method_basis_set")
         backend.addValue("method_basis_set_kind", "wavefunction")
-        backend.addValue("mapping_section_method_basis_set_cell_associated", self.basisGIndex)
+        backend.addValue(
+            "mapping_section_method_basis_set_cell_associated", self.basisGIndex)
         backend.closeSection("section_method_basis_set", gIndex)
 
         backend.addValue("electronic_structure_method", "DFT")
@@ -498,17 +531,19 @@ class ABINITContext(object):
             symbol = chemical_symbols[int(z)]
             species_count[symbol] += 1
             if species_count[symbol] > 1:
-               atom_type = symbol + str(species_count[symbol])
+                atom_type = symbol + str(species_count[symbol])
             else:
-               atom_type = symbol
+                atom_type = symbol
             atom_types.append(atom_type)
 
         # Grabs an array with the dtype of meta name atom_labels and
         # shape of self.input('x_abinit..').
-        atom_labels = backend.arrayForMetaInfo("atom_labels", self.input["x_abinit_var_natom"][-1])
+        atom_labels = backend.arrayForMetaInfo(
+            "atom_labels", self.input["x_abinit_var_natom"][-1])
 
         for atom_index in range(self.input["x_abinit_var_natom"][-1]):
-            atom_labels[atom_index] = atom_types[self.input["x_abinit_var_typat"][-1][atom_index] - 1]
+            atom_labels[atom_index] = atom_types[self.input["x_abinit_var_typat"]
+                                                 [-1][atom_index] - 1]
 
         backend.addArrayValues("atom_labels", atom_labels)
 
@@ -522,10 +557,12 @@ class ABINITContext(object):
             atom_xcart_list = None
         n_atom = self.input["x_abinit_var_natom"][-1]
         if atom_xcart_list is not None:
-            atom_xcart = backend.arrayForMetaInfo("atom_positions", [n_atom, 3])
+            atom_xcart = backend.arrayForMetaInfo(
+                "atom_positions", [n_atom, 3])
             for iatom in range(n_atom):
                 for dir in range(3):
-                    atom_xcart[iatom, dir] = float(atom_xcart_list[iatom].split()[dir])
+                    atom_xcart[iatom, dir] = float(
+                        atom_xcart_list[iatom].split()[dir])
         else:
             xcart_unit = "bohr"
             if self.input["x_abinit_var_xcart"] is not None:
@@ -536,24 +573,27 @@ class ABINITContext(object):
                 logger.error("Positions of atoms is not available")
         for iatom in range(n_atom):
             for dir in range(3):
-                atom_xcart[iatom, dir] = unit_conversion.convert_unit(atom_xcart[iatom, dir], xcart_unit)
+                atom_xcart[iatom, dir] = unit_conversion.convert_unit(
+                    atom_xcart[iatom, dir], xcart_unit)
         backend.addArrayValues("atom_positions", atom_xcart)
 
+        backend.addArrayValues(
+            "configuration_periodic_dimensions", np.array([True, True, True]))
 
-        backend.addArrayValues("configuration_periodic_dimensions", np.array([True, True, True]))
+        backend.addValue("number_of_atoms",
+                         self.input["x_abinit_var_natom"][-1])
 
-        backend.addValue("number_of_atoms", self.input["x_abinit_var_natom"][-1])
-
-        #backend.addValue("space_group_3D_number", self.input["x_abinit_var_spgroup"][-1]) # leave this to the normalizer...
+        # backend.addValue("space_group_3D_number", self.input["x_abinit_var_spgroup"][-1]) # leave this to the normalizer...
 
         vprim = backend.arrayForMetaInfo("simulation_cell", [3, 3])
         for axis in [1, 2, 3]:
-            if section["x_abinit_vprim_%s"%axis] is None:
+            if section["x_abinit_vprim_%s" % axis] is None:
                 vprim[axis-1] = self.initial_simulation_cell[axis-1]
             else:
-                vprim[axis-1] = section["x_abinit_vprim_%s"%axis][-1].split()
+                vprim[axis-1] = section["x_abinit_vprim_%s" % axis][-1].split()
             for component in range(3):
-                vprim[axis-1][component] = unit_conversion.convert_unit(vprim[axis-1][component], 'bohr')
+                vprim[axis-1][component] = unit_conversion.convert_unit(
+                    vprim[axis-1][component], 'bohr')
         backend.addArrayValues("simulation_cell", vprim)
 
     def onOpen_x_abinit_section_input(self, backend, gIndex, section):
@@ -620,23 +660,28 @@ class ABINITContext(object):
                     for ikpt in range(int(dataset_vars["x_abinit_var_nkpt"])):
                         varvalue += dataset_vars["x_abinit_var_occ"]+" "
 
-                nband = sum([int(x) for x in dataset_vars["x_abinit_var_nband"].split()])
-                array = np.array(varvalue.split(), dtype=parser_backend.numpyDtypeForDtypeStr(meta_info.dtypeStr))
+                nband = sum([int(x)
+                             for x in dataset_vars["x_abinit_var_nband"].split()])
+                array = np.array(varvalue.split(
+                ), dtype=parser_backend.numpyDtypeForDtypeStr(meta_info.dtypeStr))
                 backend.addArrayValues(varname, array.reshape([nband]))
             elif varname == "x_abinit_var_ixc":
                 # If no value of ixc is given in the input file, Abinit will try to choose it from the pseudopotentials.
                 # Since the pseudopotentials are read while performing the calculations for a given dataset, ixc might
                 # have been already read and stored. In that case we ignore the value stored in dataset_vars.
                 if section["x_abinit_var_ixc"] is None:
-                    backend.addValue(varname, backend.convertScalarStringValue(varname, varvalue))
+                    backend.addValue(
+                        varname, backend.convertScalarStringValue(varname, varvalue))
 
             elif len(meta_info.shape) == 0:
                 # This is a simple scalar
-                backend.addValue(varname, backend.convertScalarStringValue(varname, varvalue))
+                backend.addValue(
+                    varname, backend.convertScalarStringValue(varname, varvalue))
 
             else:
                 # This is an array
-                array = np.array(varvalue.split(), dtype=parser_backend.numpyDtypeForDtypeStr(meta_info.dtypeStr))
+                array = np.array(varvalue.split(
+                ), dtype=parser_backend.numpyDtypeForDtypeStr(meta_info.dtypeStr))
                 shape = []
                 for dim in meta_info.shape:
                     if isinstance(dim, basestring):
@@ -644,26 +689,34 @@ class ABINITContext(object):
                         # with their actual values.
                         dim_regex = '(?P<abi_var>x_abinit_var_\w+)'
                         for mo in re.finditer(dim_regex, dim):
-                            dim = re.sub(mo.group("abi_var"), str(dataset_vars[mo.group("abi_var")]), dim)
+                            dim = re.sub(mo.group("abi_var"), str(
+                                dataset_vars[mo.group("abi_var")]), dim)
                         # In some cases the dimension is given as a numerical expression that needs to be evaluated
                         try:
-                           dim = eval(dim)
+                            dim = eval(dim)
                         except SyntaxError as e:
-                           print(dim, meta_info.name, meta_info.shape)
-                           raise e
+                            print(dim, meta_info.name, meta_info.shape)
+                            raise e
                     shape.append(dim)
                 backend.addArrayValues(varname, array.reshape(shape))
 
     def onClose_x_abinit_section_stress_tensor(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_stress_tensor is closed.
         """
-        xx = unit_conversion.convert_unit(section["x_abinit_stress_tensor_xx"][-1], "hartree/bohr^3")
-        yy = unit_conversion.convert_unit(section["x_abinit_stress_tensor_yy"][-1], "hartree/bohr^3")
-        zz = unit_conversion.convert_unit(section["x_abinit_stress_tensor_zz"][-1], "hartree/bohr^3")
-        zy = unit_conversion.convert_unit(section["x_abinit_stress_tensor_zy"][-1], "hartree/bohr^3")
-        zx = unit_conversion.convert_unit(section["x_abinit_stress_tensor_zx"][-1], "hartree/bohr^3")
-        yx = unit_conversion.convert_unit(section["x_abinit_stress_tensor_yx"][-1], "hartree/bohr^3")
-        backend.addArrayValues("stress_tensor", np.array([[xx, yx, zx], [yx, yy, zy], [zx, zy, zz]]))
+        xx = unit_conversion.convert_unit(
+            section["x_abinit_stress_tensor_xx"][-1], "hartree/bohr^3")
+        yy = unit_conversion.convert_unit(
+            section["x_abinit_stress_tensor_yy"][-1], "hartree/bohr^3")
+        zz = unit_conversion.convert_unit(
+            section["x_abinit_stress_tensor_zz"][-1], "hartree/bohr^3")
+        zy = unit_conversion.convert_unit(
+            section["x_abinit_stress_tensor_zy"][-1], "hartree/bohr^3")
+        zx = unit_conversion.convert_unit(
+            section["x_abinit_stress_tensor_zx"][-1], "hartree/bohr^3")
+        yx = unit_conversion.convert_unit(
+            section["x_abinit_stress_tensor_yx"][-1], "hartree/bohr^3")
+        backend.addArrayValues("stress_tensor", np.array(
+            [[xx, yx, zx], [yx, yy, zy], [zx, zy, zz]]))
 
     def onClose_x_abinit_section_var(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_var is closed.
@@ -674,12 +727,14 @@ class ABINITContext(object):
             dataset = 0
         else:
             dataset = int(m.group(0))
-            section["x_abinit_varname"][0] = re.sub('[0-9]+$', '', section["x_abinit_varname"][0])
+            section["x_abinit_varname"][0] = re.sub(
+                '[0-9]+$', '', section["x_abinit_varname"][0])
 
         if dataset not in self.abinitVars.keys():
             self.abinitVars[dataset] = {}
         if len(section["x_abinit_varvalue"]) == 1:
-            self.abinitVars[dataset]["x_abinit_var_" + section["x_abinit_varname"][0]] = section["x_abinit_varvalue"][0]
+            self.abinitVars[dataset]["x_abinit_var_" +
+                                     section["x_abinit_varname"][0]] = section["x_abinit_varvalue"][0]
         else:
             # We have an array of values. We will only set the variable if we have all the values, that is, if the array
             # was not truncated.
@@ -1270,7 +1325,8 @@ mainFileDescription = \
                        startReStr="\s*$",
                        endReStr=r"\s*Overall time at end \(sec\) : cpu=\s*\S*\s*wall=\s*\S*",
                        required=True,
-                       fixedStartValues={'program_name': 'ABINIT', 'program_basis_set_type': 'plane waves'},
+                       fixedStartValues={'program_name': 'ABINIT',
+                                         'program_basis_set_type': 'plane waves'},
                        sections=['section_run'],
                        subMatchers=[headerMatcher,
                                     memestimationMatcher,
@@ -1285,23 +1341,25 @@ mainFileDescription = \
                     ]
        )
 
-class AbinitParser():
-   """ A proper class envolop for running this parser from within python. """
-   def __init__(self, backend, **kwargs):
-       self.backend_factory = backend
 
-   def parse(self, mainfile):
-       from unittest.mock import patch
-       logging.info('abinit parser started')
-       logging.getLogger('nomadcore').setLevel(logging.WARNING)
-       backend = self.backend_factory("abinit.nomadmetainfo.json")
-       with patch.object(sys, 'argv', ['<exe>', '--uri', 'nmd://uri', mainfile]):
-           mainFunction(
-               mainFileDescription,
-               None,
-               parserInfo,
-               cachingLevelForMetaName = {'x_abinit_section_var': CachingLevel.Cache
+class AbinitParser():
+    """ A proper class envolop for running this parser from within python. """
+
+    def __init__(self, backend, **kwargs):
+        self.backend_factory = backend
+
+    def parse(self, mainfile):
+        from unittest.mock import patch
+        logging.info('abinit parser started')
+        logging.getLogger('nomadcore').setLevel(logging.WARNING)
+        backend = self.backend_factory("abinit.nomadmetainfo.json")
+        with patch.object(sys, 'argv', ['<exe>', '--uri', 'nmd://uri', mainfile]):
+            mainFunction(
+                mainFileDescription,
+                None,
+                parserInfo,
+                cachingLevelForMetaName={'x_abinit_section_var': CachingLevel.Cache
                                          },
-               superContext=ABINITContext(),
-               superBackend=backend)
-       return backend
+                superContext=ABINITContext(),
+                superBackend=backend)
+        return backend
