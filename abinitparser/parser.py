@@ -30,7 +30,8 @@ import sys
 import glob
 
 from nomad.units import ureg
-from nomad.datamodel.metainfo.public import section_dos
+from nomad.datamodel.metainfo.public import section_dos, section_k_band, section_k_band_segment
+from nomad.parsing.text_parser import Quantity, UnstructuredTextFileParser
 
 try:
     basestring
@@ -248,12 +249,13 @@ class ABINITContext(object):
             fname_dos = glob.glob(dosfile_pattern)
             if len(fname_dos) == 0:
                 dos_file_exists = False
+                logger.warning(f'DOS file not found for SSCC {sscc_idx}')
             else:
                 fname_dos = fname_dos[0]
                 dos_file_exists = True
         elif len(fname_dos) == 0:
             dos_file_exists = False
-            logger.warning('DOS file not found.')
+            logger.warning(f'DOS file not found for SSCC {sscc_idx}')
         elif len(fname_dos) > 1:
              # more than one file matches pattern (unexpected)
             dos_file_exists = False
@@ -364,9 +366,83 @@ class ABINITContext(object):
         # Code for DOS: end
         #################################
 
+        # #########################
+        # BANDSTRUCTURE  CODE
+        sscc = backend.entry_archive.section_run[0].section_single_configuration_calculation
+        sscc_last = sscc[-1]
+        sscc_idx = len(sscc)  # current index, base one.
+
+        # SECTION K_BAND: creation and filling
+        kband_sec = sscc_last.m_create(section_k_band)
+        kband_sec = kband_sec.m_create(section_k_band_segment)
+        kband_sec.band_structure_kind = 'electronic'
+
+        #print('\nsscc_idx: ', sscc_idx)
+        #print('eigenvals: ', sscc_last.section_eigenvalues[0].eigenvalues_values.shape)
+        # get indices that slice at special kpts
+        # slice `eigenvalues_values` and kpoints.
+
+
+        # BANDSTRUCTURE CODE_end
+
+
+
+
+
     def onClose_section_eigenvalues(self, backend, gIndex, section):
         """Trigger called when section_eigenvalues is closed.
         """
+        def parse_EIG_file(self, backend, gIndex, section):
+            """
+            Parse ABINIT _EIG file when eigenvalues are not fully reported in mainfile.
+
+            Called from 'onClose_section_eigenvalues().
+            """
+
+            # In ABINIT, NOMAD`s 'sscc' are called 'datasets', and are numbered from one.
+            # We pick up DOS file according to sscc (dataset) index.
+            # BEWARE: the DOS output file can have different name patterns.
+            # The only guarantee is that it will contain the dataset index
+            # and that it will end with `_DOS`.
+            backend = backend.superBackend
+            sscc = backend.entry_archive.section_run[0].section_single_configuration_calculation
+            sscc_last = sscc[-1]
+            sscc_idx = len(sscc)  # current index, base one.
+            mainfile_base = (self.input_filename).split('.out')[0]
+            dosfile_pattern = mainfile_base + f'*{sscc_idx}*_EIG'
+            fname_dos = glob.glob(dosfile_pattern)[0]
+            print('parsing EIG file', fname_dos)
+
+            # ALVINs
+            kpt_reduced = r'[01]\.\d+' # reduced coordinates, hence we expect floats <= 1.0
+            kpt_regex = r'.*kpt=\s*(?P<kptsC>{}\s+{}\s+{})\s*\(.*'.format(kpt_reduced,kpt_reduced,kpt_reduced)
+
+            kpt_regex = r'kpt=\s*([0-9\. ]+)\s*\(reduced coord'
+            #
+            def kpt_break(match_str):
+                return match_str.split()
+
+            quantities = [
+                Quantity('kpt_coords', kpt_regex, str_operation = kpt_break)
+            ]
+
+            parser = UnstructuredTextFileParser(fname_dos, quantities)
+            print(parser['kpt_coords']) # old way
+            #print(parser.get('kpt_coords')) # after rebase, new.
+
+            #print(parser.items())
+
+            # dos_dict = {}
+            # for key, val in parser.items():
+            #     dos_dict[key] = val[0]
+            #print(dos_dict.keys())
+
+            raise
+
+
+
+            pass
+
         nkpt = int(self.input["x_abinit_var_nkpt"][-1])
         nspin = int(self.input["x_abinit_var_nsppol"][-1])
         nband = int(self.input["x_abinit_var_nband"][-1][0][0])
@@ -417,15 +493,35 @@ class ABINITContext(object):
                 logger.warn("K-points are not available.")
             kpoints = np.array(abi_kpoints)
 
-            if len(kpoints) == nkpt and len(eigenvalues) == nband*nspin*nkpt and len(occupations) == nband * nspin * nkpt:
+            print('\n\nMAINFILE: reported nkpt:', nkpt , '. Num of kpoints found:', len(kpoints), '. nspin:', nspin)
+
+            fallback_eig_file = False
+            if len(eigenvalues) == nband * nspin * nkpt and len(occupations) == nband * nspin * nkpt:
                 backend.addValue("eigenvalues_kind", "normal")
                 backend.addValue("number_of_eigenvalues", nband)
-                backend.addValue("number_of_eigenvalues_kpoints", nkpt)
-                backend.addArrayValues("eigenvalues_kpoints", kpoints)
                 backend.addArrayValues(
                     "eigenvalues_values", eigenvalues.reshape([nspin, nkpt, nband]))
                 backend.addArrayValues(
                     "eigenvalues_occupation", occupations.reshape([nspin, nkpt, nband]))
+            else:
+                logger.warn('Insuficient number of `eigenvalues_values` found in mainfile')
+                # ToDo: fall back to _EIG file!
+                fallback_eig_file = True
+
+
+            if nspin == 1 and nkpt == len(kpoints):
+                backend.addValue("number_of_eigenvalues_kpoints", nkpt)
+                backend.addArrayValues("eigenvalues_kpoints", kpoints)
+            elif nspin == 2 and nkpt == int(0.5 * len(kpoints)):
+                # kpoints are reported for each spin channel, but they are the same set.
+                # Hence, we store the top half, till `nkpt`
+                backend.addArrayValues("eigenvalues_kpoints", kpoints[:nkpt])
+            else:
+                logger.warn('Insuficient number of `eigenvalues_kpoints` found in mainfile')
+                fallback_eig_file = True
+
+            if fallback_eig_file:
+                parse_EIG_file(self, backend, gIndex, section)
 
     def onOpen_x_abinit_section_dataset_header(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is opened.
@@ -662,9 +758,11 @@ class ABINITContext(object):
 
                 nband = sum([int(x)
                              for x in dataset_vars["x_abinit_var_nband"].split()])
+                #print(f'nband', nband)
+                #print(f'varvalue:', type(varvalue), len(varvalue.split()), varvalue)
                 array = np.array(varvalue.split(
                 ), dtype=parser_backend.numpyDtypeForDtypeStr(meta_info.dtypeStr))
-                backend.addArrayValues(varname, array.reshape([nband]))
+                backend.addArrayValues(varname, array.reshape([nband])) # FIXME: fails for eigenvalues for bandstruc
             elif varname == "x_abinit_var_ixc":
                 # If no value of ixc is given in the input file, Abinit will try to choose it from the pseudopotentials.
                 # Since the pseudopotentials are read while performing the calculations for a given dataset, ixc might
