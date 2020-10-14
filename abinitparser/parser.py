@@ -30,7 +30,7 @@ import sys
 import glob
 
 from nomad.units import ureg
-from nomad.datamodel.metainfo.public import section_dos, section_k_band, section_k_band_segment
+from nomad.datamodel.metainfo.public import section_dos, section_k_band, section_k_band_segment, section_eigenvalues
 from nomad.parsing.text_parser import Quantity, UnstructuredTextFileParser
 
 try:
@@ -410,38 +410,85 @@ class ABINITContext(object):
             sscc_idx = len(sscc)  # current index, base one.
             mainfile_base = (self.input_filename).split('.out')[0]
             dosfile_pattern = mainfile_base + f'*{sscc_idx}*_EIG'
-            fname_dos = glob.glob(dosfile_pattern)[0]
-            print('parsing EIG file', fname_dos)
+            fname_EIG = glob.glob(dosfile_pattern)
 
-            # ALVINs
-            kpt_reduced = r'[01]\.\d+' # reduced coordinates, hence we expect floats <= 1.0
-            kpt_regex = r'.*kpt=\s*(?P<kptsC>{}\s+{}\s+{})\s*\(.*'.format(kpt_reduced,kpt_reduced,kpt_reduced)
+            if len(fname_EIG) == 0:
+                dos_file_exists = False
+                logger.warning(f'EIG file not found for SSCC {sscc_idx}')
+            elif len(fname_EIG) == 1:
+                eig_file_exists = True
+                fname_EIG = fname_EIG[0]
+            elif len(fname_EIG) > 1:
+                # more than one file matches pattern (unexpected)
+                eig_file_exists = False
+                logger.warning('Multiple EIG filenames matching expected pattern.')
 
-            kpt_regex = r'kpt=\s*([0-9\. ]+)\s*\(reduced coord'
-            #
+
+            # MAINFILE:
+            occ_regex = r'END DATASET[\S\s]*?occ%s([\s\-0-9\.]+)occ' %(sscc_idx)
+            quantities = [
+                Quantity('occupations', occ_regex, repeats=False)
+            ]
+            parser_mainfile = UnstructuredTextFileParser(self.input_filename, quantities)
+            occ = parser_mainfile.get('occupations')
+
+            # _EIG FILE
+            kpt_regex = r'kpt=\s*([\-0-9\. ]+)\s*\(reduced coord'
+            band_regex = r'coord\)\s*([\-0-9\. ]+)\n'
+            nband_regex = r'nband=\s*([0-9]+),'
+            wtk_regex = r'wtk=\s*([\-0-9\.]+),'
+            unit_regex = r'Eigenvalues \((\w+)\)'
+            fermi_regex = r'\sFermi \(or HOMO\) energy \((?P<__unit>\w+)\) =\s*([\-0-9\.]+)'
+            spinpol_regex = r'k points[\:\,]+([\w\s]+)' # `k points:` and `k points, SPIN UP:`
+
+
             def kpt_break(match_str):
-                return match_str.split()
+                return match_str.strip().split()
+
+            def spin_pol(match_str):
+                if 'SPIN' in match_str:
+                    spinpol = 2
+                else:
+                    spinpol = 1
+                return spinpol
 
             quantities = [
-                Quantity('kpt_coords', kpt_regex, str_operation = kpt_break)
+                Quantity('unit', unit_regex, repeats=False),
+                Quantity('kpt_coords', kpt_regex, str_operation=kpt_break),
+                Quantity('kpt_wtk', wtk_regex),
+                Quantity('band_ene', band_regex),
+                Quantity('nband', nband_regex),
+                Quantity('fermi_ene', fermi_regex, repeats=False),
+                Quantity('spin_channels', spinpol_regex, str_operation=spin_pol, repeats=False)
             ]
 
-            parser = UnstructuredTextFileParser(fname_dos, quantities)
-            print(parser['kpt_coords']) # old way
-            #print(parser.get('kpt_coords')) # after rebase, new.
+            if eig_file_exists:
+                parser = UnstructuredTextFileParser(fname_EIG, quantities)
 
-            #print(parser.items())
+                unit = parser.get('unit')
+                kpt_wtk = parser.get('kpt_wtk')
+                nband = parser.get('nband')[0]
+                band_ene = parser.get('band_ene', unit=unit)
+                #fermi_ene = parser.get('fermi_ene', unit=unit)
+                spin_channels = parser.get('spin_channels')
 
-            # dos_dict = {}
-            # for key, val in parser.items():
-            #     dos_dict[key] = val[0]
-            #print(dos_dict.keys())
+                eig_kpts = parser.get('kpt_coords')
+                if spin_channels == 1:
+                    num_eig_kpt = len(eig_kpts)
+                elif spin_channels == 2:
+                    num_eig_kpt = int(0.5 * len(eig_kpts))
 
-            raise
+                # SECTION EIGENVALUES: fill Archive metadata
+                eigenval_sec = sscc_last.m_create(section_eigenvalues)
 
-
-
-            pass
+                eigenval_sec.eigenvalues_kind = 'electronic'
+                eigenval_sec.number_of_eigenvalues_kpoints = num_eig_kpt
+                eigenval_sec.eigenvalues_kpoints_weights = kpt_wtk
+                eigenval_sec.eigenvalues_kpoints = eig_kpts
+                eigenval_sec.eigenvalues_occupation = np.reshape(occ,(spin_channels,num_eig_kpt,nband))
+                eigenval_sec.eigenvalues_values = np.reshape(band_ene,(spin_channels,num_eig_kpt,nband))
+                eigenval_sec.number_of_eigenvalues = nband
+        # end of parse_EIG_file()
 
         nkpt = int(self.input["x_abinit_var_nkpt"][-1])
         nspin = int(self.input["x_abinit_var_nsppol"][-1])
@@ -493,8 +540,6 @@ class ABINITContext(object):
                 logger.warn("K-points are not available.")
             kpoints = np.array(abi_kpoints)
 
-            print('\n\nMAINFILE: reported nkpt:', nkpt , '. Num of kpoints found:', len(kpoints), '. nspin:', nspin)
-
             fallback_eig_file = False
             if len(eigenvalues) == nband * nspin * nkpt and len(occupations) == nband * nspin * nkpt:
                 backend.addValue("eigenvalues_kind", "normal")
@@ -504,10 +549,8 @@ class ABINITContext(object):
                 backend.addArrayValues(
                     "eigenvalues_occupation", occupations.reshape([nspin, nkpt, nband]))
             else:
-                logger.warn('Insuficient number of `eigenvalues_values` found in mainfile')
-                # ToDo: fall back to _EIG file!
+                logger.warn('Insuficient number of `eigenvalues_values` found in mainfile.')
                 fallback_eig_file = True
-
 
             if nspin == 1 and nkpt == len(kpoints):
                 backend.addValue("number_of_eigenvalues_kpoints", nkpt)
@@ -521,6 +564,7 @@ class ABINITContext(object):
                 fallback_eig_file = True
 
             if fallback_eig_file:
+                logger.warn('Falling back to EIG file')
                 parse_EIG_file(self, backend, gIndex, section)
 
     def onOpen_x_abinit_section_dataset_header(self, backend, gIndex, section):
