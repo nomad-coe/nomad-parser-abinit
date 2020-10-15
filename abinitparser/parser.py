@@ -432,6 +432,14 @@ class ABINITContext(object):
             parser_mainfile = UnstructuredTextFileParser(self.input_filename, quantities)
             occ = parser_mainfile.get('occupations')
 
+            if occ is None:
+                occ_regex = r'END DATASET[\S\s]*?occ([\s\-0-9\.]+)\w'
+                quantities = [
+                    Quantity('occupations', occ_regex, repeats=False)
+                ]
+                parser_mainfile = UnstructuredTextFileParser(self.input_filename, quantities)
+                occ = parser_mainfile.get('occupations')
+
             # _EIG FILE
             kpt_regex = r'kpt=\s*([\-0-9\. ]+)\s*\(reduced coord'
             band_regex = r'coord\)\s*([\-0-9\. ]+)\n'
@@ -480,6 +488,12 @@ class ABINITContext(object):
 
                 # SECTION EIGENVALUES: fill Archive metadata
                 eigenval_sec = sscc_last.m_create(section_eigenvalues)
+
+                if len(occ)==nband:
+                    # if ABINIT's `occopt==1`, then all kpts have the same occ
+                    # hence, we need to mirror array, so that later reshepe succedes
+                    occ = np.repeat(occ, nkpt)
+
 
                 eigenval_sec.eigenvalues_kind = 'electronic'
                 eigenval_sec.number_of_eigenvalues_kpoints = num_eig_kpt
@@ -781,15 +795,20 @@ class ABINITContext(object):
                     nband += dataset_vars["x_abinit_var_nband"]+" "
             dataset_vars["x_abinit_var_nband"] = nband
 
+        x_abinit_var_iscf = None
         for varname, varvalue in dataset_vars.items():
-
+            x_abinit_var_iscf = None
             meta_info = backend.superBackend.metaInfoEnv().infoKindEl(varname)
+
+            # if varname == 'x_abinit_var_iscf':
+            #     x_abinit_var_iscf = int(varvalue)
 
             # Skip optional variables that do not have a value or that are not defined in the meta-info
             if varvalue is None or meta_info is None:
                 continue
+            x_abinit_var_iscf = str(dataset_vars['x_abinit_var_iscf']).strip()
 
-            if varname == "x_abinit_var_occ":
+            if varname == "x_abinit_var_occ" and x_abinit_var_iscf != '-2':
                 # Abinit allows for different numbers of bands per k-point and/or spin channel
                 # This means the occupations need to be handled in a special way
 
@@ -799,11 +818,14 @@ class ABINITContext(object):
                     varvalue = ""
                     for ikpt in range(int(dataset_vars["x_abinit_var_nkpt"])):
                         varvalue += dataset_vars["x_abinit_var_occ"]+" "
+                #print('\n\nvarvalue', varvalue)
+                #print('\n dataset_vars["x_abinit_var_nband"]', dataset_vars["x_abinit_var_nband"])
+                #print('---', dataset_vars['x_abinit_var_iscf'].strip(), type(dataset_vars['x_abinit_var_iscf']))
+                #print(dataset_vars['x_abinit_var_iscf'].strip() != '-2')
 
                 nband = sum([int(x)
                              for x in dataset_vars["x_abinit_var_nband"].split()])
-                #print(f'nband', nband)
-                #print(f'varvalue:', type(varvalue), len(varvalue.split()), varvalue)
+
                 array = np.array(varvalue.split(
                 ), dtype=parser_backend.numpyDtypeForDtypeStr(meta_info.dtypeStr))
                 backend.addArrayValues(varname, array.reshape([nband])) # FIXME: fails for eigenvalues for bandstruc
@@ -820,7 +842,7 @@ class ABINITContext(object):
                 backend.addValue(
                     varname, backend.convertScalarStringValue(varname, varvalue))
 
-            else:
+            elif x_abinit_var_iscf != '-2':
                 # This is an array
                 array = np.array(varvalue.split(
                 ), dtype=parser_backend.numpyDtypeForDtypeStr(meta_info.dtypeStr))
