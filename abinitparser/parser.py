@@ -367,15 +367,40 @@ class ABINITContext(object):
         #################################
 
         # #########################
-        # BANDSTRUCTURE  CODE
+        # BANDSTRUCTURE  CODE:
+        # i need access to pairs (ndtset, iscf). If iscf=-2, then read EIG
+
         sscc = backend.entry_archive.section_run[0].section_single_configuration_calculation
         sscc_last = sscc[-1]
         sscc_idx = len(sscc)  # current index, base one.
 
         # SECTION K_BAND: creation and filling
+        # http://nomad-lab.eu/prod/rae/gui/metainfo/EntryArchive/section_run/section_single_configuration_calculation/section_k_band/section_band_gap
         kband_sec = sscc_last.m_create(section_k_band)
         kband_sec = kband_sec.m_create(section_k_band_segment)
         kband_sec.band_structure_kind = 'electronic'
+
+        # MARKUS: why only one SSCC for abinit
+        print('sscc_idx', sscc_idx)
+        #print(sscc_last.section_eigenvalues[1].number_of_eigenvalues)
+
+        # reciprocal_cell
+        # is_standard_path = True
+        # section_k_band_segment
+        #  band_energies
+        #  band_k_points
+        #  band_occupations
+        #  band_segm_labels
+        #  band_segm_start_end
+        #  num_of_kpoints_per_segment
+
+        # section_band_gap
+        #  value
+        #  type
+        #  conduction_band_min_energy
+        #  valence_band_max_energy
+        #  conduction_band_min_k_point
+        #  valence_band_max_k_point
 
         #print('\nsscc_idx: ', sscc_idx)
         #print('eigenvals: ', sscc_last.section_eigenvalues[0].eigenvalues_values.shape)
@@ -385,124 +410,233 @@ class ABINITContext(object):
 
         # BANDSTRUCTURE CODE_end
 
-
-
-
-
-    def onClose_section_eigenvalues(self, backend, gIndex, section):
-        """Trigger called when section_eigenvalues is closed.
+    def parse_EIG_file(self, backend, gIndex, section):
         """
-        def parse_EIG_file(self, backend, gIndex, section):
-            """
-            Parse ABINIT _EIG file when eigenvalues are not fully reported in mainfile.
+        Parse ABINIT _EIG file when eigenvalues are not fully reported in mainfile.
 
-            Called from 'onClose_section_eigenvalues().
-            """
+        Called from 'onClose_section_eigenvalues().
+        """
 
-            # In ABINIT, NOMAD`s 'sscc' are called 'datasets', and are numbered from one.
-            # We pick up DOS file according to sscc (dataset) index.
-            # BEWARE: the DOS output file can have different name patterns.
-            # The only guarantee is that it will contain the dataset index
-            # and that it will end with `_DOS`.
-            backend = backend.superBackend
-            sscc = backend.entry_archive.section_run[0].section_single_configuration_calculation
-            sscc_last = sscc[-1]
-            sscc_idx = len(sscc)  # current index, base one.
-            mainfile_base = (self.input_filename).split('.out')[0]
-            dosfile_pattern = mainfile_base + f'*{sscc_idx}*_EIG'
-            fname_EIG = glob.glob(dosfile_pattern)
+        # In ABINIT, NOMAD`s 'sscc' are called 'datasets', and are numbered from one.
+        # We pick up DOS file according to sscc (dataset) index.
+        # BEWARE: the DOS output file can have different name patterns.
+        # The only guarantee is that it will contain the dataset index
+        # and that it will end with `_DOS`.
+        backend = backend.superBackend
+        sscc = backend.entry_archive.section_run[0].section_single_configuration_calculation
+        sscc_last = sscc[-1]
+        sscc_idx = len(sscc)  # current index, base one.
+        mainfile_base = (self.input_filename).split('.out')[0]
+        dosfile_pattern = mainfile_base + f'*{sscc_idx}*_EIG'
+        fname_EIG = glob.glob(dosfile_pattern)
 
-            if len(fname_EIG) == 0:
-                dos_file_exists = False
-                logger.warning(f'EIG file not found for SSCC {sscc_idx}')
-            elif len(fname_EIG) == 1:
-                eig_file_exists = True
-                fname_EIG = fname_EIG[0]
-            elif len(fname_EIG) > 1:
-                # more than one file matches pattern (unexpected)
-                eig_file_exists = False
-                logger.warning('Multiple EIG filenames matching expected pattern.')
+        if len(fname_EIG) == 0:
+            eig_file_exists = False
+            logger.warning(f'EIG file not found for SSCC {sscc_idx}')
+        elif len(fname_EIG) == 1:
+            eig_file_exists = True
+            fname_EIG = fname_EIG[0]
+        elif len(fname_EIG) > 1:
+            # more than one file matches pattern (unexpected)
+            eig_file_exists = False
+            logger.warning('Multiple EIG filenames matching expected pattern.')
 
 
-            # MAINFILE:
-            occ_regex = r'END DATASET[\S\s]*?occ%s([\s\-0-9\.]+)occ' %(sscc_idx)
+        # MAINFILE:
+        occ_regex = r'END DATASET[\S\s]*?occ%s([\s\-0-9\.]+)occ' %(sscc_idx)
+        quantities = [
+            Quantity('occupations', occ_regex, repeats=False)
+        ]
+        parser_mainfile = UnstructuredTextFileParser(self.input_filename, quantities)
+        occ = parser_mainfile.get('occupations')
+
+        if occ is None:
+            occ_regex = r'END DATASET[\S\s]*?occ([\s\-0-9\.]+)\w'
             quantities = [
                 Quantity('occupations', occ_regex, repeats=False)
             ]
             parser_mainfile = UnstructuredTextFileParser(self.input_filename, quantities)
             occ = parser_mainfile.get('occupations')
 
-            if occ is None:
-                occ_regex = r'END DATASET[\S\s]*?occ([\s\-0-9\.]+)\w'
-                quantities = [
-                    Quantity('occupations', occ_regex, repeats=False)
-                ]
-                parser_mainfile = UnstructuredTextFileParser(self.input_filename, quantities)
-                occ = parser_mainfile.get('occupations')
-
-            # _EIG FILE
-            kpt_regex = r'kpt=\s*([\-0-9\. ]+)\s*\(reduced coord'
-            band_regex = r'coord\)\s*([\-0-9\. ]+)\n'
-            nband_regex = r'nband=\s*([0-9]+),'
-            wtk_regex = r'wtk=\s*([\-0-9\.]+),'
-            unit_regex = r'Eigenvalues \((\w+)\)'
-            fermi_regex = r'\sFermi \(or HOMO\) energy \((?P<__unit>\w+)\) =\s*([\-0-9\.]+)'
-            spinpol_regex = r'k points[\:\,]+([\w\s]+)' # `k points:` and `k points, SPIN UP:`
+        # _EIG FILE
+        kpt_regex = r'kpt=\s*([\-0-9\. ]+)\s*\(reduced coord'
+        band_regex = r'coord\)\s*([\-0-9\. ]+)\n'
+        nband_regex = r'nband=\s*([0-9]+),'
+        wtk_regex = r'wtk=\s*([\-0-9\.]+),'
+        unit_regex = r'Eigenvalues \((\w+)\)'
+        fermi_regex = r'\sFermi \(or HOMO\) energy \((?P<__unit>\w+)\) =\s*([\-0-9\.]+)'
+        spinpol_regex = r'k points[\:\,]+([\w\s]+)' # `k points:` and `k points, SPIN UP:`
 
 
-            def kpt_break(match_str):
-                return match_str.strip().split()
+        def kpt_break(match_str):
+            return match_str.strip().split()
 
-            def spin_pol(match_str):
-                if 'SPIN' in match_str:
-                    spinpol = 2
-                else:
-                    spinpol = 1
-                return spinpol
+        def spin_pol(match_str):
+            if 'SPIN' in match_str:
+                spinpol = 2
+            else:
+                spinpol = 1
+            return spinpol
 
-            quantities = [
-                Quantity('unit', unit_regex, repeats=False),
-                Quantity('kpt_coords', kpt_regex, str_operation=kpt_break),
-                Quantity('kpt_wtk', wtk_regex),
-                Quantity('band_ene', band_regex),
-                Quantity('nband', nband_regex),
-                Quantity('fermi_ene', fermi_regex, repeats=False),
-                Quantity('spin_channels', spinpol_regex, str_operation=spin_pol, repeats=False)
-            ]
+        quantities = [
+            Quantity('unit', unit_regex, repeats=False),
+            Quantity('kpt_coords', kpt_regex, str_operation=kpt_break),
+            Quantity('kpt_wtk', wtk_regex),
+            Quantity('band_ene', band_regex),
+            Quantity('nband', nband_regex),
+            Quantity('fermi_ene', fermi_regex, repeats=False),
+            Quantity('spin_channels', spinpol_regex, str_operation=spin_pol, repeats=False)
+        ]
 
-            if eig_file_exists:
-                parser = UnstructuredTextFileParser(fname_EIG, quantities)
+        if eig_file_exists:
+            parser = UnstructuredTextFileParser(fname_EIG, quantities)
 
-                unit = parser.get('unit')
-                kpt_wtk = parser.get('kpt_wtk')
-                nband = parser.get('nband')[0]
-                band_ene = parser.get('band_ene', unit=unit)
-                #fermi_ene = parser.get('fermi_ene', unit=unit)
-                spin_channels = parser.get('spin_channels')
+            unit = parser.get('unit')
+            kpt_wtk = parser.get('kpt_wtk')
+            nband = parser.get('nband')[0]
+            band_ene = parser.get('band_ene', unit=unit)
+            #fermi_ene = parser.get('fermi_ene', unit=unit)
+            spin_channels = parser.get('spin_channels')
 
-                eig_kpts = parser.get('kpt_coords')
-                if spin_channels == 1:
-                    num_eig_kpt = len(eig_kpts)
-                elif spin_channels == 2:
-                    num_eig_kpt = int(0.5 * len(eig_kpts))
+            eig_kpts = parser.get('kpt_coords')
+            if spin_channels == 1:
+                num_eig_kpt = len(eig_kpts)
+            elif spin_channels == 2:
+                num_eig_kpt = int(0.5 * len(eig_kpts))
 
-                # SECTION EIGENVALUES: fill Archive metadata
-                eigenval_sec = sscc_last.m_create(section_eigenvalues)
+            # SECTION EIGENVALUES: fill Archive metadata
+            eigenval_sec = sscc_last.m_create(section_eigenvalues)
 
-                if len(occ)==nband:
-                    # if ABINIT's `occopt==1`, then all kpts have the same occ
-                    # hence, we need to mirror array, so that later reshepe succedes
-                    occ = np.repeat(occ, nkpt)
+            if len(occ)==nband:
+                # if ABINIT's `occopt==1`, then all kpts have the same occ
+                # hence, we need to mirror array, so that later reshape succedes
+                occ = np.repeat(occ, num_eig_kpt)
 
 
-                eigenval_sec.eigenvalues_kind = 'electronic'
-                eigenval_sec.number_of_eigenvalues_kpoints = num_eig_kpt
-                eigenval_sec.eigenvalues_kpoints_weights = kpt_wtk
-                eigenval_sec.eigenvalues_kpoints = eig_kpts
-                eigenval_sec.eigenvalues_occupation = np.reshape(occ,(spin_channels,num_eig_kpt,nband))
-                eigenval_sec.eigenvalues_values = np.reshape(band_ene,(spin_channels,num_eig_kpt,nband))
-                eigenval_sec.number_of_eigenvalues = nband
-        # end of parse_EIG_file()
+            eigenval_sec.eigenvalues_kind = 'electronic'
+            eigenval_sec.number_of_eigenvalues_kpoints = num_eig_kpt
+            eigenval_sec.eigenvalues_kpoints_weights = kpt_wtk
+            eigenval_sec.eigenvalues_kpoints = eig_kpts
+            eigenval_sec.eigenvalues_occupation = np.reshape(occ,(spin_channels,num_eig_kpt,nband))
+            eigenval_sec.eigenvalues_values = np.reshape(band_ene,(spin_channels,num_eig_kpt,nband))
+            eigenval_sec.number_of_eigenvalues = nband
+    # end of parse_EIG_file()
+
+
+    def onClose_section_eigenvalues(self, backend, gIndex, section):
+        """Trigger called when section_eigenvalues is closed.
+        """
+        # def parse_EIG_file(self, backend, gIndex, section):
+        #     """
+        #     Parse ABINIT _EIG file when eigenvalues are not fully reported in mainfile.
+
+        #     Called from 'onClose_section_eigenvalues().
+        #     """
+
+        #     # In ABINIT, NOMAD`s 'sscc' are called 'datasets', and are numbered from one.
+        #     # We pick up DOS file according to sscc (dataset) index.
+        #     # BEWARE: the DOS output file can have different name patterns.
+        #     # The only guarantee is that it will contain the dataset index
+        #     # and that it will end with `_DOS`.
+        #     backend = backend.superBackend
+        #     sscc = backend.entry_archive.section_run[0].section_single_configuration_calculation
+        #     sscc_last = sscc[-1]
+        #     sscc_idx = len(sscc)  # current index, base one.
+        #     mainfile_base = (self.input_filename).split('.out')[0]
+        #     dosfile_pattern = mainfile_base + f'*{sscc_idx}*_EIG'
+        #     fname_EIG = glob.glob(dosfile_pattern)
+
+        #     if len(fname_EIG) == 0:
+        #         eig_file_exists = False
+        #         logger.warning(f'EIG file not found for SSCC {sscc_idx}')
+        #     elif len(fname_EIG) == 1:
+        #         eig_file_exists = True
+        #         fname_EIG = fname_EIG[0]
+        #     elif len(fname_EIG) > 1:
+        #         # more than one file matches pattern (unexpected)
+        #         eig_file_exists = False
+        #         logger.warning('Multiple EIG filenames matching expected pattern.')
+
+
+        #     # MAINFILE:
+        #     occ_regex = r'END DATASET[\S\s]*?occ%s([\s\-0-9\.]+)occ' %(sscc_idx)
+        #     quantities = [
+        #         Quantity('occupations', occ_regex, repeats=False)
+        #     ]
+        #     parser_mainfile = UnstructuredTextFileParser(self.input_filename, quantities)
+        #     occ = parser_mainfile.get('occupations')
+
+        #     if occ is None:
+        #         occ_regex = r'END DATASET[\S\s]*?occ([\s\-0-9\.]+)\w'
+        #         quantities = [
+        #             Quantity('occupations', occ_regex, repeats=False)
+        #         ]
+        #         parser_mainfile = UnstructuredTextFileParser(self.input_filename, quantities)
+        #         occ = parser_mainfile.get('occupations')
+
+        #     # _EIG FILE
+        #     kpt_regex = r'kpt=\s*([\-0-9\. ]+)\s*\(reduced coord'
+        #     band_regex = r'coord\)\s*([\-0-9\. ]+)\n'
+        #     nband_regex = r'nband=\s*([0-9]+),'
+        #     wtk_regex = r'wtk=\s*([\-0-9\.]+),'
+        #     unit_regex = r'Eigenvalues \((\w+)\)'
+        #     fermi_regex = r'\sFermi \(or HOMO\) energy \((?P<__unit>\w+)\) =\s*([\-0-9\.]+)'
+        #     spinpol_regex = r'k points[\:\,]+([\w\s]+)' # `k points:` and `k points, SPIN UP:`
+
+
+        #     def kpt_break(match_str):
+        #         return match_str.strip().split()
+
+        #     def spin_pol(match_str):
+        #         if 'SPIN' in match_str:
+        #             spinpol = 2
+        #         else:
+        #             spinpol = 1
+        #         return spinpol
+
+        #     quantities = [
+        #         Quantity('unit', unit_regex, repeats=False),
+        #         Quantity('kpt_coords', kpt_regex, str_operation=kpt_break),
+        #         Quantity('kpt_wtk', wtk_regex),
+        #         Quantity('band_ene', band_regex),
+        #         Quantity('nband', nband_regex),
+        #         Quantity('fermi_ene', fermi_regex, repeats=False),
+        #         Quantity('spin_channels', spinpol_regex, str_operation=spin_pol, repeats=False)
+        #     ]
+
+        #     if eig_file_exists:
+        #         parser = UnstructuredTextFileParser(fname_EIG, quantities)
+
+        #         unit = parser.get('unit')
+        #         kpt_wtk = parser.get('kpt_wtk')
+        #         nband = parser.get('nband')[0]
+        #         band_ene = parser.get('band_ene', unit=unit)
+        #         #fermi_ene = parser.get('fermi_ene', unit=unit)
+        #         spin_channels = parser.get('spin_channels')
+
+        #         eig_kpts = parser.get('kpt_coords')
+        #         if spin_channels == 1:
+        #             num_eig_kpt = len(eig_kpts)
+        #         elif spin_channels == 2:
+        #             num_eig_kpt = int(0.5 * len(eig_kpts))
+
+        #         # SECTION EIGENVALUES: fill Archive metadata
+        #         eigenval_sec = sscc_last.m_create(section_eigenvalues)
+
+        #         if len(occ)==nband:
+        #             # if ABINIT's `occopt==1`, then all kpts have the same occ
+        #             # hence, we need to mirror array, so that later reshape succedes
+        #             occ = np.repeat(occ, nkpt)
+
+
+        #         eigenval_sec.eigenvalues_kind = 'electronic'
+        #         eigenval_sec.number_of_eigenvalues_kpoints = num_eig_kpt
+        #         eigenval_sec.eigenvalues_kpoints_weights = kpt_wtk
+        #         eigenval_sec.eigenvalues_kpoints = eig_kpts
+        #         eigenval_sec.eigenvalues_occupation = np.reshape(occ,(spin_channels,num_eig_kpt,nband))
+        #         eigenval_sec.eigenvalues_values = np.reshape(band_ene,(spin_channels,num_eig_kpt,nband))
+        #         eigenval_sec.number_of_eigenvalues = nband
+        # # end of parse_EIG_file()
 
         nkpt = int(self.input["x_abinit_var_nkpt"][-1])
         nspin = int(self.input["x_abinit_var_nsppol"][-1])
@@ -579,7 +713,7 @@ class ABINITContext(object):
 
             if fallback_eig_file:
                 logger.warn('Falling back to EIG file')
-                parse_EIG_file(self, backend, gIndex, section)
+                self.parse_EIG_file( backend, gIndex, section)
 
     def onOpen_x_abinit_section_dataset_header(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_dataset is opened.
@@ -808,6 +942,7 @@ class ABINITContext(object):
                 continue
             x_abinit_var_iscf = str(dataset_vars['x_abinit_var_iscf']).strip()
 
+
             if varname == "x_abinit_var_occ" and x_abinit_var_iscf != '-2':
                 # Abinit allows for different numbers of bands per k-point and/or spin channel
                 # This means the occupations need to be handled in a special way
@@ -863,7 +998,7 @@ class ABINITContext(object):
                             raise e
                     shape.append(dim)
                 backend.addArrayValues(varname, array.reshape(shape))
-
+        print('pppppp')
     def onClose_x_abinit_section_stress_tensor(self, backend, gIndex, section):
         """Trigger called when x_abinit_section_stress_tensor is closed.
         """
@@ -1235,11 +1370,87 @@ SCFOutput = \
                     ]
        )
 
+# non_SCFCycleMatcher = \
+#     SM(name='SCFCycle',
+#        startReStr=r"Non-SCF case,.*$",
+#        repeats=True,
+#        sections=['section_single_configuration_calculation'],
+#        subMatchers=[SM(r"-{80}\s*$",
+#                        coverageIgnore=True),
+#                     SM(r"---SELF-CONSISTENT-FIELD CONVERGENCE-{44}",
+#                        coverageIgnore=True),
+#                     SM(r"(\s*|-)ETOT\s*[0-9]+\s*(?P<energy_total_scf_iteration__hartree>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*"
+#                        r"(?P<energy_change_scf_iteration__hartree>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)(\s*[-+0-9.eEdD]*)*",
+#                        sections=["section_scf_iteration"],
+#                        repeats=True),
+#                     SM(r"\s*At SCF step\s*(?P<number_of_scf_iterations>[0-9]+)\s*"
+#                        r"(, etot|, forces|vres2\s*=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*<\s*tolvrs=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*=>)\s*"
+#                        r"(?P<x_abinit_single_configuration_calculation_converged>(is converged|are converged|converged))"
+#                        r"\s*(:|.)\s*$"),
+#                     SM(r"\s*for the second time, (max diff in force|diff in etot)=\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*<\s*tol(dfe|dff)="
+#                        r"\s*[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?\s*$"),
+#                     SM(startReStr=r"\s*Cartesian components of stress tensor \(hartree/bohr\^3\)\s*$",
+#                        coverageIgnore=True,
+#                        sections=["x_abinit_section_stress_tensor"],
+#                        subMatchers=[SM(r"\s*sigma\(1 1\)=\s*(?P<x_abinit_stress_tensor_xx>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)"
+#                                        r"\s*sigma\(3 2\)=\s*(?P<x_abinit_stress_tensor_zy>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+#                                     SM(r"\s*sigma\(2 2\)=\s*(?P<x_abinit_stress_tensor_yy>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)"
+#                                        r"\s*sigma\(3 1\)=\s*(?P<x_abinit_stress_tensor_zx>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$"),
+#                                     SM(r"\s*sigma\(3 3\)=\s*(?P<x_abinit_stress_tensor_zz>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)"
+#                                        r"\s*sigma\(2 1\)=\s*(?P<x_abinit_stress_tensor_yx>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*$")
+#                                     ]
+#                        ),
+#                     SM(startReStr=r"\s*--- !ResultsGS\s*",
+#                        required=False,
+#                        coverageIgnore=True,
+#                        subMatchers=[SM(r"\s*fermie\s*:\s*(?P<x_abinit_fermi_energy>[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)$")
+#                                     ]
+#                        ),
+#                     SM(startReStr=r"\s*Integrated electronic density in atomic spheres:\s*$",
+#                        required=False,
+#                        coverageIgnore=True,
+#                        subMatchers=[SM(r"\s*-{48}\s*$",
+#                                        coverageIgnore=True),
+#                                     SM(r"\s*Atom\s*Sphere_radius\s*Integrated_density\s*$",
+#                                        coverageIgnore=True),
+#                                     SM(r"\s*\d+\s*[0-9.]+\s*[0-9.]+\s*$",
+#                                        coverageIgnore=True, repeats=True)
+#                                     ]
+#                        ),
+#                     SM(startReStr=r"\s*Integrated electronic and magnetization densities in atomic spheres:\s*$",
+#                        required=False,
+#                        coverageIgnore=True,
+#                        subMatchers=[SM(r"\s*-{69}\s*$",
+#                                        coverageIgnore=True),
+#                                     SM(r"\s*Note: Diff\(up-dn\) is a rough approximation of local magnetic moment\s*$",
+#                                        coverageIgnore=True),
+#                                     SM(r"\s*Atom\s*Radius\s*up_density\s*dn_density\s*Total\(up\+dn\)\s*Diff\(up-dn\)\s*$",
+#                                        coverageIgnore=True),
+#                                     SM(r"\s*\d+(\s*[0-9.]+){5}\s*$",
+#                                        coverageIgnore=True, repeats=True),
+#                                     SM(r"\s*-{69}\s*$",
+#                                        coverageIgnore=True),
+#                                     SM(r"\s*Sum:(\s*[0-9.]+){4}\s*$",
+#                                        coverageIgnore=True),
+#                                     SM(r"\s*Total magnetization \(from the atomic spheres\):\s*[0-9.]+\s*$",
+#                                        coverageIgnore=True),
+#                                     SM(r"\s*Total magnetization \(exact up - dn\):\s*[0-9.]+\s*$",
+#                                        coverageIgnore=True)
+#                                     ]
+#                        ),
+#                     SCFOutput,
+#                     SM(r"={80}\s*$",
+#                        coverageIgnore=True, required=False),
+#                     SCFResultsMatcher
+#                     ]
+#        )
+
 
 SCFCycleMatcher = \
     SM(name='SCFCycle',
        startReStr=r"(\s*iter\s*(Etot\(hartree\)|2DEtotal\(Ha\))\s*deltaE\((h|Ha)\)(\s*\w+)*|"
-                  r"--- Iteration: \(\s*\d+/\d+\) Internal Cycle: \(\d+/\d+\))\s*$",
+                  r"--- Iteration: \(\s*\d+/\d+\) Internal Cycle: \(\d+/\d+\))\s*$|"
+                  r"Non-SCF case,.*$",
        repeats=True,
        sections=['section_single_configuration_calculation'],
        subMatchers=[SM(r"-{80}\s*$",
@@ -1410,6 +1621,7 @@ datasetMatcher = \
                        required=False, coverageIgnore=True),
                     SM(r"={80}\s*$",
                        coverageIgnore=True, required=False, weak=True),
+                    #non_SCFCycleMatcher,
                     SCFCycleMatcher,
                     SM(r"==( END DATASET\(S\) |={16})={62}\s*$",
                        coverageIgnore=True),
