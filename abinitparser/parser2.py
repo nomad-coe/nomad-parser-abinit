@@ -103,8 +103,6 @@ class AbinitOutputParser(UnstructuredTextFileParser):
             # added '[\d]' to account for possible index: nkpt1, nkpt2, ...
             regex = r'%s[\d]*\s*%s' %(key, int_re)
             self._quantities.append(Quantity(key, regex, repeats=True))
-            # ALVIN: could we stop at maximum 'ndtset' occurrences?
-            # .    e.g., if ndtset==2, then there is nkpt1, nkpt2
 
         # FLOAT Variables
         float_list = ['amu', 'diemac', 'dosdeltae', 'ecut', 'kptrlen', 'znucl']
@@ -118,6 +116,7 @@ class AbinitOutputParser(UnstructuredTextFileParser):
             self._quantities.append(Quantity(key, repat, repeats=False))
 
 
+#
 
         # KPTs
         self._quantities.append(Quantity('kpt', r'-outvars: echo values of preprocessed input variables --------[\s\S]*?(kpt[kpt\d\.E\+\-\s]+)',str_operation=string_to_kpt, repeats=False))
@@ -131,12 +130,19 @@ class AbinitOutputParser(UnstructuredTextFileParser):
             val = [v.split()[2] for v in string.strip().split('\n') if 'ETOT' in v]
             return val
 
+        def str_to_force(string):
+            val = string.strip().split()
+            val = np.reshape(val, (-1,4))
+            return val[:,1:] # skip first column (it's an index)
+
         dataset_quantity = Quantity(
-            'dataset', r'== DATASET\s*\d+([\s\S]*?)(?:== DATASET\s*\d*|== END DATASET)',repeats=True,
+            'dataset', r'== DATASET\s*\d+([\s\S]*?)(?:== DATASET\s*\d*|== END DATASET)',
+            repeats=True,
             sub_parser=UnstructuredTextFileParser(quantities=[
                 Quantity(
                     'scf_energies',
-                    r'\n *iter([\s\S]*?)converged', str_operation=str_to_scf_ener, repeats=False),
+                    r'\n *iter([\s\S]*?)converged', str_operation=str_to_scf_ener,
+                    repeats=False),
                 Quantity(
                     'stress',
                     r'\s* Cartesian components of stress tensor \(hartree[/]bohr.3\)'
@@ -146,12 +152,23 @@ class AbinitOutputParser(UnstructuredTextFileParser):
                     r'\s*sigma\(\d \d\)=\s*([\+\-\d\.Ee]+)'
                     r'\s*sigma\(\d \d\)=\s*([\+\-\d\.Ee]+)'
                     r'\s*sigma\(\d \d\)=\s*([\+\-\d\.Ee]+)',
-                    repeats=False, dtype=float, shape=(3,2), unit='hartree/bohr**3')
+                    repeats=False, dtype=float, shape=(3,2), unit='hartree/bohr**3'),
+                Quantity(
+                    'ucvol',
+                    r'\s*Unit cell volume ucvol=\s*([\+\-\d\.Ee]+)', dtype=float,
+                    unit='bohr**3', repeats=False),
+                Quantity(
+                    'EIG_file',
+                    r'\s*prteigrs : about to open file\s*([\S]+)'),
+                Quantity(
+                    'forces_SCF',
+                    r'\s*cartesian forces \(hartree/bohr\) at end:\s*([\+\-\d\.\n ]+)',
+                    str_operation=str_to_force, dtype=float, unit='hartree/bohr')
                     ] ))
 
         self._quantities.append(dataset_quantity)
 
-.
+
 
 class AbinitParserInterface:
     """Class to write to NOMAD's Archive"""
@@ -170,6 +187,7 @@ class AbinitParserInterface:
         # Fill in
         sec_run.program_name = 'abinit'
         sec_run.program_version = self.out_parser.get('program_version')
+
 
         # =========
         # Energy Cutoff
@@ -203,14 +221,11 @@ class AbinitParserInterface:
         xcart =  np.reshape(self.out_parser.get('xcart'), (-1,3))
         sec_system.atom_positions = xcart * ureg.a_u_length
 
-        datasets = self.out_parser.get('dataset')
-        for dataset in datasets:
-            print('\ndataset')
-            print('scf_energies', dataset.get('scf_energies'))
-            print('\nstress', dataset.get('stress'))
+
 
         # kpoints: one entry per dataset
         kpt_list = self.out_parser.get('kpt')
+
         for ii, kpt in enumerate(kpt_list):
             print(f'kpt {ii+1})\n ',   kpt)
             print('----')
@@ -225,6 +240,9 @@ class AbinitParserInterface:
         energy_map['XC energy'] = 'energy_XC'
         energy_map['Etotal'] = 'energy_total'
         energy_map['PspCore energy'] = 'x_abinit_energy_psp_core'
+        energy_map['EIG_file'] = 'x_abinit_energy_ewald'
+        energy_map['Loc. psp. energy'] = 'x_abinit_energy_psp_local'
+        energy_map['NL   psp  energy'] = 'x_abinit_energy_psp_nonlocal'
 
 
         for ener in energy_list:
@@ -254,6 +272,15 @@ class AbinitParserInterface:
         print('xcart', xcart)
         print(natom, znucl)
 
+
+        datasets = self.out_parser.get('dataset')
+        for dataset in datasets:
+            print('\n\n\nDATASET')
+            print('scf_energies', dataset.get('scf_energies'))
+            print('\nstress', dataset.get('stress'))
+            print('\nucvol', dataset.get('ucvol'))
+            print('\nEIG_file', dataset.get('EIG_file'))
+            print('\nforces_SCF', dataset.get('forces_SCF'))
 
 
 
