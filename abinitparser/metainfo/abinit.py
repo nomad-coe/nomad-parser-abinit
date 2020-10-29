@@ -249,6 +249,30 @@ class section_run(public.section_run):
         repeats=True,
         a_legacy=LegacyDefinition(name='x_abinit_section_var'))
 
+class section_method(public.section_method):
+    m_def = Section(validate=False, extends_base_section=True,
+    a_legacy=LegacyDefinition(name='section_method'))
+
+    x_abinit_tolwfr = Quantity(
+        type=np.dtype(np.float64),
+        shape=[],
+        description='''
+        TOLerance on WaveFunction squared Residual:
+        Specifies the threshold on WaveFunction squared Residuals;
+        it gives a convergence tolerance for the largest squared residual
+        for any given band.
+        ''',
+        a_legacy=LegacyDefinition(name='x_abinit_tolwfr'))
+
+    x_abinit_istwfk = Quantity(
+        type=np.dtype(np.int32),
+        shape=[],
+        description='''
+         Integer for choice of STorage of WaveFunction at each k point;
+        Controls the way the wavefunction for each k-point is stored inside ABINIT,
+        in reciprocal space, according to time-reversal symmetry properties.
+        ''',
+        a_legacy=LegacyDefinition(name='x_abinit_istwfk'))
 
 class section_system(public.section_system):
 
@@ -315,29 +339,32 @@ class section_single_configuration_calculation(public.section_single_configurati
         ''',
         a_legacy=LegacyDefinition(name='x_abinit_atom_force_final'))
 
-    x_abinit_energy_kinetic = Quantity(
-        type=np.dtype(np.float64),
-        shape=[],
-        description='''
-        Kinetic energy
-        ''',
-        a_legacy=LegacyDefinition(name='x_abinit_energy_kinetic'))
+    # REDUNDANT
+    # x_abinit_energy_kinetic = Quantity(
+    #     type=np.dtype(np.float64),
+    #     shape=[],
+    #     description='''
+    #     Kinetic energy
+    #     ''',
+    #     a_legacy=LegacyDefinition(name='x_abinit_energy_kinetic'))
 
-    x_abinit_energy_hartree = Quantity(
-        type=np.dtype(np.float64),
-        shape=[],
-        description='''
-        Hartree energy
-        ''',
-        a_legacy=LegacyDefinition(name='x_abinit_energy_hartree'))
+    # REDUNDANT
+    # x_abinit_energy_hartree = Quantity(
+    #     type=np.dtype(np.float64),
+    #     shape=[],
+    #     description='''
+    #     Hartree energy
+    #     ''',
+    #     a_legacy=LegacyDefinition(name='x_abinit_energy_hartree'))
 
-    x_abinit_energy_xc = Quantity(
-        type=np.dtype(np.float64),
-        shape=[],
-        description='''
-        XC energy
-        ''',
-        a_legacy=LegacyDefinition(name='x_abinit_energy_xc'))
+    # REDUNDANT
+    # x_abinit_energy_xc = Quantity(
+    #     type=np.dtype(np.float64),
+    #     shape=[],
+    #     description='''
+    #     XC energy
+    #     ''',
+    #     a_legacy=LegacyDefinition(name='x_abinit_energy_xc'))
 
     x_abinit_energy_ewald = Quantity(
         type=np.dtype(np.float64),
@@ -395,13 +422,14 @@ class section_single_configuration_calculation(public.section_single_configurati
         ''',
         a_legacy=LegacyDefinition(name='x_abinit_energy_band'))
 
-    x_abinit_energy_total = Quantity(
-        type=np.dtype(np.float64),
-        shape=[],
-        description='''
-        Total energy
-        ''',
-        a_legacy=LegacyDefinition(name='x_abinit_energy_total'))
+    # REDUNDANT
+    # x_abinit_energy_total = Quantity(
+    #     type=np.dtype(np.float64),
+    #     shape=[],
+    #     description='''
+    #     Total energy
+    #     ''',
+    #     a_legacy=LegacyDefinition(name='x_abinit_energy_total'))
 
     x_abinit_section_stress_tensor = SubSection(
         sub_section=SectionProxy('x_abinit_section_stress_tensor'),
