@@ -110,15 +110,6 @@ class x_abinit_section_dataset_header(MSection):
         ''',
         a_legacy=LegacyDefinition(name='x_abinit_vprim_3'))
 
-    x_abinit_unit_cell_volume = Quantity(
-        type=np.dtype(np.float64),
-        unit='meter**3',
-        shape=[],
-        description='''
-        Unit cell volume
-        ''',
-        a_legacy=LegacyDefinition(name='x_abinit_unit_cell_volume')) # OK 'legacy'?
-
 
 class x_abinit_section_var(MSection):
     '''
@@ -253,6 +244,18 @@ class section_method(public.section_method):
     m_def = Section(validate=False, extends_base_section=True,
     a_legacy=LegacyDefinition(name='section_method'))
 
+    x_abinit_tolvrs = Quantity(
+        type=np.dtype(np.float64),
+        shape=[],
+        description='''
+        `TOLerance on the potential V(r) ReSidual`:
+        Sets a tolerance for potential residual that, when reached, will cause
+        one SCF cycle to stop (and ions to be moved). If set to zero, this
+        stopping condition is ignored. Instead, refer to other tolerances, such
+        as toldfe, tolwfr.
+        ''',
+        a_legacy=LegacyDefinition(name='x_abinit_tolvrs'))
+
     x_abinit_tolwfr = Quantity(
         type=np.dtype(np.float64),
         shape=[],
@@ -273,6 +276,14 @@ class section_method(public.section_method):
         in reciprocal space, according to time-reversal symmetry properties.
         ''',
         a_legacy=LegacyDefinition(name='x_abinit_istwfk'))
+
+    x_abinit_iscf = Quantity(
+        type=np.dtype(np.int32),
+        shape=[],
+        description='''
+        ABINIT variable Integer for Self-Consistent-Field cycles
+        ''',
+        a_legacy=LegacyDefinition(name='x_abinit_iscf'))
 
 class section_system(public.section_system):
 
@@ -332,39 +343,13 @@ class section_single_configuration_calculation(public.section_single_configurati
         a_legacy=LegacyDefinition(name='x_abinit_atom_force'))
 
     x_abinit_atom_force_final = Quantity(
-        type=str,
+        type=np.dtype(np.float64),
+        unit='newton',
         shape=[],
         description='''
         Force acting on an atom at the end of the dataset
         ''',
         a_legacy=LegacyDefinition(name='x_abinit_atom_force_final'))
-
-    # REDUNDANT
-    # x_abinit_energy_kinetic = Quantity(
-    #     type=np.dtype(np.float64),
-    #     shape=[],
-    #     description='''
-    #     Kinetic energy
-    #     ''',
-    #     a_legacy=LegacyDefinition(name='x_abinit_energy_kinetic'))
-
-    # REDUNDANT
-    # x_abinit_energy_hartree = Quantity(
-    #     type=np.dtype(np.float64),
-    #     shape=[],
-    #     description='''
-    #     Hartree energy
-    #     ''',
-    #     a_legacy=LegacyDefinition(name='x_abinit_energy_hartree'))
-
-    # REDUNDANT
-    # x_abinit_energy_xc = Quantity(
-    #     type=np.dtype(np.float64),
-    #     shape=[],
-    #     description='''
-    #     XC energy
-    #     ''',
-    #     a_legacy=LegacyDefinition(name='x_abinit_energy_xc'))
 
     x_abinit_energy_ewald = Quantity(
         type=np.dtype(np.float64),
@@ -422,19 +407,20 @@ class section_single_configuration_calculation(public.section_single_configurati
         ''',
         a_legacy=LegacyDefinition(name='x_abinit_energy_band'))
 
-    # REDUNDANT
-    # x_abinit_energy_total = Quantity(
-    #     type=np.dtype(np.float64),
-    #     shape=[],
-    #     description='''
-    #     Total energy
-    #     ''',
-    #     a_legacy=LegacyDefinition(name='x_abinit_energy_total'))
 
     x_abinit_section_stress_tensor = SubSection(
         sub_section=SectionProxy('x_abinit_section_stress_tensor'),
         repeats=True,
         a_legacy=LegacyDefinition(name='x_abinit_section_stress_tensor'))
+
+    x_abinit_unit_cell_volume = Quantity(
+        type=np.dtype(np.float64),
+        unit='meter**3',
+        shape=[],
+        description='''
+        Unit cell volume
+        ''',
+        a_legacy=LegacyDefinition(name='x_abinit_unit_cell_volume'))
 
 
 class section_eigenvalues(public.section_eigenvalues):

@@ -2525,14 +2525,7 @@ class x_abinit_section_input(MSection):
         categories=[x_abinit_var],
         a_legacy=LegacyDefinition(name='x_abinit_var_irdwfq'))
 
-    x_abinit_var_iscf = Quantity(
-        type=np.dtype(np.int32),
-        shape=[],
-        description='''
-        ABINIT variable Integer for Self-Consistent-Field cycles
-        ''',
-        categories=[x_abinit_var],
-        a_legacy=LegacyDefinition(name='x_abinit_var_iscf'))
+
 
     x_abinit_var_isecur = Quantity(
         type=np.dtype(np.int32),
