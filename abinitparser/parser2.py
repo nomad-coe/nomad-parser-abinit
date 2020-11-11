@@ -15,6 +15,7 @@
 
 import glob
 import os
+import re
 import numpy as np
 import pint
 from nomad.units import ureg
@@ -46,6 +47,8 @@ class AbinitOutputParser(UnstructuredTextFileParser):
     def init_quantities(self):
         self._quantities = []
         self._quantities.append(Quantity('program_version', r'\.Version\s*([\d\.]+)', repeats=False),)
+        self._quantities.append(Quantity('root_out', r'- root for output files ->\s*([\w]+)', repeats=False))
+        #                                              - root for output files -> tspin_1o
 
         def string_to_ener(string):
             string = string.replace('\n\n', '\n') # remove empty lines
@@ -107,7 +110,6 @@ class AbinitOutputParser(UnstructuredTextFileParser):
             self._quantities.append(Quantity(key, repat, repeats=False))
 
         # SPECIAL CASES
-        #self._quantities.append(Quantity('root_out',r'- root for output files ->\s*([\s]+)', repeats=False)
 
         # input file header
         self._quantities.append(Quantity('kpt', r'-outvars: echo values of preprocessed input variables --------[\s\S]*?(kpt[kpt\d\.E\+\-\s]+)',str_operation=string_to_kpt, repeats=False))
@@ -197,8 +199,8 @@ class AbinitOutputParser(UnstructuredTextFileParser):
                     ]))
         self._quantities.append(dataset_quantities)
 
-        # SUBPARSING for the tail of the output file.
-        # that is: everything below
+        # SUBPARSING the tail of the output file.
+        # that is, everything below
         #      "-outvars: echo values of variables after computation", notice "AFTER".
         def string_to_nsppol(string):
             # print(string)
@@ -472,8 +474,26 @@ class AbinitParserInterface:
             else:
                 logger.warning('Eigenvalue filename reported in mainfile was not found')
 
-       # DENSITY OF STATES: DOS
-       # self.parse_EIG_file(eig_fname, dataset, sscc, jdtset)
+        # DENSITY OF STATES: DOS
+        mainfile_base = (self.mainfile).split('.out')[0]
+        dos_fname_multi = mainfile_base + f'o_DS{jdtset}_DOS'
+
+        # consider also a job with *one* dataset, e.g., `<BASE>o_DOS`
+        dos_fname_single = mainfile_base + 'o_DOS'
+
+
+        if os.path.isfile(dos_fname_multi):
+            dos_fname = dos_fname_multi
+        elif os.path.isfile(dos_fname_single):
+            dos_fname = dos_fname_single
+        else:
+            dos_fname = None
+            logger.warning(f'DOS file missing for SSCC {jdtset}')
+
+        # call
+        if dos_fname is not None:
+            logger.warning(f'DOS file found for SSCC {jdtset}, parsing ...')
+            self.parse_DOS_file(dos_fname, dataset, sscc, jdtset)
 
     # end of parse_dataset()
 
@@ -484,13 +504,13 @@ class AbinitParserInterface:
         """
         Parse ABINIT _EIG file when eigenvalues are not fully reported in mainfile.
 
-        Called from 'onClose_section_eigenvalues().
+        Called from 'parse_dataset()'
 
         Args:
             eig_file: filename for eigenvalue file
             dataset: UnstructuredTextFileParser Object
             sscc : a section_single_configuration_calculation instance
-            sscc_idx (int): dataset index (i.e., sscc index)
+            sscc_idx (int): current sscc (dataset) index
         """
 
         # In ABINIT, NOMAD`s 'sscc' are called 'datasets', and are numbered from one.
@@ -547,7 +567,6 @@ class AbinitParserInterface:
             Quantity('spin_channels', spinpol_regex, str_operation=spin_pol, repeats=False)
         ]
 
-        #if eig_file_exists:
         parser = UnstructuredTextFileParser(eig_file, eig_quantities)
 
         unit = parser.get('unit')
@@ -582,163 +601,114 @@ class AbinitParserInterface:
 
     def parse_DOS_file(self, dos_file, dataset, sscc, sscc_idx):
         """
-        Parse ABINIT _EIG file when eigenvalues are not fully reported in mainfile.
+        Parse ABINIT's _DOS file.
 
-        Called from 'onClose_section_eigenvalues().
+        Called from 'parse_dataset()'
 
         Args:
-            eig_file: filename for eigenvalue file
+            dos_file: filename for density-of-states file
             dataset: UnstructuredTextFileParser Object
             sscc : a section_single_configuration_calculation instance
-            sscc_idx (int): dataset index (i.e., sscc index)
+            sscc_idx (int): current sscc (dataset) index
         """
 
-        # DOS CODE
-        #backend = backend.superBackend
-        #sscc = backend.entry_archive.section_run[0].section_single_configuration_calculation
-        #sscc_last = sscc[-1]
+        try:
+            with open(dos_file, 'r') as textfile:
+                body = textfile.read()
+        except FileNotFoundError:
+            logger.warning(f'File not found: {dos_file}')
+        except Exception as err:
+            logger.error(f'Exception on {__file__}', exc_info=err)
 
-        # Fermi energy from mainfile (if found). It's a numpy array of shape (1,)
-        # OBSOLETE fermi_energy_mainfile = sscc_last.energy_reference_fermi
+        # DOS file: identify energy units
+        regex = r'\s*at\s*(?P<num_dos_values>\d*)\s*energies\s*\(in\s*(?P<energy_unit>\w*)\)'
+        match = re.search(regex, body, re.MULTILINE)
+        if match:
+            num_dos_values = int(match.group('num_dos_values'))
+            energy_unit = match.group('energy_unit')
+            if energy_unit == 'Hartree':
+                units_dos_file = ureg.a_u_energy
+            elif energy_unit == 'eV':
+                units_dos_file = ureg.eV
 
-        # In ABINIT, NOMAD`s 'sscc' are called 'datasets', and are numbered from one.
-        # We pick up DOS file according to sscc (dataset) index.
-        # BEWARE: the DOS output file can have different name patterns.
-        # The only guarantee is that it will contain the dataset index
-        # and that it will end with `_DOS`.
-        mainfile_base = (self.input_filename).split('.out')[0]
-        dosfile_pattern = mainfile_base + f'*{sscc_idx}*_DOS'
-        fname_dos = glob.glob(dosfile_pattern)
-
-        if len(fname_dos) == 1:
-            fname_dos = fname_dos[0]
-            dos_file_exists = True
-        elif len(fname_dos) == 0 and sscc_idx == 1:
-            # catch a run with one dataset, e.g., `BASEo_DOS`
-            dosfile_pattern = mainfile_base + 'o_DOS'
-            fname_dos = glob.glob(dosfile_pattern)
-            if len(fname_dos) == 0:
-                dos_file_exists = False
-                logger.warning(f'DOS file not found for SSCC {sscc_idx}')
-            else:
-                fname_dos = fname_dos[0]
-                dos_file_exists = True
-        elif len(fname_dos) == 0:
-            dos_file_exists = False
-            logger.warning(f'DOS file not found for SSCC {sscc_idx}')
-        elif len(fname_dos) > 1:
-             # more than one file matches pattern (unexpected)
-            dos_file_exists = False
-            logger.warning('Multiple DOS filenames matching expected pattern.')
-
-        # DOS file: open
-        if dos_file_exists:
-            try:
-                with open(fname_dos, 'r') as textfile:
-                    body = textfile.read()
-            except FileNotFoundError:
-                logger.warning(f'File not found: {fname_dos}')
-            except Exception as err:
-                logger.error(f'Exception on {__file__}', exc_info=err)
-
-            # DOS file: identify energy units
-            regex = r'\s*at\s*(?P<num_dos_values>\d*)\s*energies\s*\(in\s*(?P<energy_unit>\w*)\)'
-            match = re.search(regex, body, re.MULTILINE)
-            if match:
-                num_dos_values = int(match.group('num_dos_values'))
-                energy_unit = match.group('energy_unit')
-                if energy_unit == 'Hartree':
-                    units_dos_file = ureg.a_u_energy
-                elif energy_unit == 'eV':
-                    units_dos_file = ureg.eV
-
-            # DOS file: pick up Fermi energy
-            match = re.search(
-                r'^#\s*Fermi energy :\s*(?P<fermi_energy>[-+]*\d*\.\d*)', body, re.MULTILINE)
-            if match:
-                # `fermiFU`: energy_fermi with `file` units (eV or Hartree)
-                fermiFU = float(match.group('fermi_energy')) * units_dos_file
-                # normalizer expects Joules
-                fermi_energy_J = fermiFU.to(ureg.J)
-
-                # OBSOLETE:
-                # try:
-                #     # if Fermi was found in mainfile, then confirm it matches dos file
-                #     if fermi_energy_mainfile is not None:
-                #         assert np.allclose(
-                #             fermi_energy_mainfile, fermi_energy_J)
-                # except AssertionError as error_msg:
-                #     logger.error('fermi mismatch ', error_msg)
-
-                # normalizer expects numpy array of shape (1,) without units (needs `ndmin=1`)
-                sscc_last.energy_reference_fermi = np.array(
+        # DOS file: pick up Fermi energy
+        match = re.search(
+            r'^#\s*Fermi energy :\s*(?P<fermi_energy>[-+]*\d*\.\d*)', body, re.MULTILINE)
+        if match:
+            # `fermiFU`: energy_fermi with `file` units (eV or Hartree)
+            fermiFU = float(match.group('fermi_energy')) * units_dos_file
+            # normalizer expects Joules
+            fermi_energy_J = fermiFU.to(ureg.J)
+            sscc.energy_reference_fermi = np.array(
                     fermi_energy_J.magnitude, ndmin=1)
 
-            # DOS file: open it again, this time directly to a Numpy array
-            try:
-                dos_data = np.genfromtxt(fname_dos)
-            except FileNotFoundError:
-                logger.warning(f'File not found: {fname_dos}')
-            except Exception as err:
-                logger.error(f'Exception on {__file__}', exc_info=err)
+        # DOS file: open it again, this time directly to a Numpy array
+        try:
+            dos_data = np.genfromtxt(dos_file)
+        except FileNotFoundError:
+            logger.warning(f'File not found: {dos_file}')
+        except Exception as err:
+            logger.error(f'Exception on {__file__}', exc_info=err)
 
-            # Slice `dos_data` according to `num_dos_values`. Doing so way we treat
-            # correctly the number of spin levels
-            if dos_data.shape[0] == num_dos_values:
-                spin_treat = False
-            else:
-                spin_treat = True
+        # Slice `dos_data` according to `num_dos_values`. Doing so way we treat
+        # correctly the number of spin levels
+        if dos_data.shape[0] == num_dos_values:
+            spin_treat = False
+        else:
+            spin_treat = True
 
-            dos_energies_Joules = (
-                dos_data[:num_dos_values, 0] * units_dos_file).to(ureg.J)
-            dos_values = np.zeros((2, num_dos_values))
-            dos_values_integrated = np.zeros((2, num_dos_values))
-            if spin_treat:
-                # start till num_dos_values
-                dos_values[0] = dos_data[:num_dos_values, 1]
-                # num_dos_values till end
-                dos_values[1] = dos_data[num_dos_values:, 1]
-                # likewise
-                dos_values_integrated[0] = dos_data[:num_dos_values, 2]
-                dos_values_integrated[1] = dos_data[num_dos_values:, 2]
-            else:
-                dos_values[0] = dos_data[:num_dos_values, 1]
-                dos_values[1] = dos_data[:num_dos_values, 1]
-                dos_values_integrated[0] = dos_data[:num_dos_values, 2]
-                dos_values_integrated[1] = dos_data[:num_dos_values, 2]
+        dos_energies_Joules = (
+            dos_data[:num_dos_values, 0] * units_dos_file).to(ureg.J)
+        dos_values = np.zeros((2, num_dos_values))
+        dos_values_integrated = np.zeros((2, num_dos_values))
+        if spin_treat:
+            # start till num_dos_values
+            dos_values[0] = dos_data[:num_dos_values, 1]
+            # num_dos_values till end
+            dos_values[1] = dos_data[num_dos_values:, 1]
+            # likewise
+            dos_values_integrated[0] = dos_data[:num_dos_values, 2]
+            dos_values_integrated[1] = dos_data[num_dos_values:, 2]
+        else:
+            dos_values[0] = dos_data[:num_dos_values, 1]
+            dos_values[1] = dos_data[:num_dos_values, 1]
+            dos_values_integrated[0] = dos_data[:num_dos_values, 2]
+            dos_values_integrated[1] = dos_data[:num_dos_values, 2]
 
-            # NOMAD metainfo needs dos_values (A) without physical units,
-            # (B) without unit-cell normalization, and (C) without Fermi-energy shift
-            # In ABINIT
-            #   - DOS units are (electrons/Hartree/cell) and
-            #   - integrated DOS are in (in electrons/cell)
-            #   - `_DOS` file has dos_values without Fermi shift,
-            #   - `_DOS` file uses energies in Hartree, regardless of the value
-            #     of ABINIT's variable `enunit` (energy units for bandstructures)
+        # NOMAD metainfo needs dos_values (A) without physical units,
+        # (B) without unit-cell normalization, and (C) without Fermi-energy shift
+        # In ABINIT
+        #   - DOS units are (electrons/Hartree/cell) and
+        #   - integrated DOS are in (in electrons/cell)
+        #   - `_DOS` file has dos_values without Fermi shift,
+        #   - `_DOS` file uses energies in Hartree, regardless of the value
+        #     of ABINIT's variable `enunit` (energy units for bandstructures)
 
-            # Retrieve  unit cell volume.
-            # Original value was in 'bohr**3', but the Archive stores it in 'meter**3'
-            # hence we need to convert it back to bohrs**3
-            unit_cell_vol_m3 = sscc_last.m_parent.x_abinit_section_dataset[
-                0].x_abinit_section_dataset_header[0].x_abinit_unit_cell_volume
-            unit_cell_vol_bohr3 = unit_cell_vol_m3.to('bohr**3')
+        # Retrieve  unit cell volume.
+        # Original value was in 'bohr**3', but the Archive stores it in 'meter**3'
+        # hence we need to convert it back to bohrs**3
+        unit_cell_vol_bohr3 = sscc.x_abinit_unit_cell_volume.to('bohr**3')
 
-            dos_values = dos_values * unit_cell_vol_bohr3.magnitude
-            dos_values_integrated = dos_values_integrated * unit_cell_vol_bohr3.magnitude
+        dos_values = dos_values * unit_cell_vol_bohr3.magnitude
+        dos_values_integrated = dos_values_integrated * unit_cell_vol_bohr3.magnitude
 
-            # SECTION DOS: creation and filling
-            dos_sec = sscc_last.m_create(section_dos)
-            dos_sec.dos_kind = 'electronic'
-            dos_sec.number_of_dos_values = dos_values.shape[0]
-            dos_sec.dos_energies = dos_energies_Joules
+        # SECTION DOS: creation and filling
+        dos_sec = sscc.m_create(section_dos)
+        dos_sec.dos_kind = 'electronic'
+        dos_sec.number_of_dos_values = dos_values.shape[0]
+        dos_sec.dos_energies = dos_energies_Joules
 
-            dos_sec.dos_values = dos_values
-            dos_sec.dos_integrated_values = dos_values_integrated
-    # end of parse_EIG_file()
-
+        dos_sec.dos_values = dos_values
+        dos_sec.dos_integrated_values = dos_values_integrated
+    # end of parse_DOS_file()
 
     # = = = = = = = = = =
     def parse(self):
+        root_out = self.out_parser.get('root_out')
+        ndtset = self.out_parser.get('ndtset')[0]
+        logger.warning(f'Root for output filenames: {root_out}')
+        logger.warning(f'Number of datasets found: {ndtset}')
+
         # SECTION CREATION
         sec_run = self.archive.m_create(section_run)
 
@@ -760,7 +730,7 @@ class AbinitParserInterface:
             sec_basis_set_cell_dependent.basis_set_cell_dependent_name = "PW_%s" % (energy_cutoff.to('rydberg').magnitude)
 
         # Always pick first entry of `ndtset`: this sets the num of SSCC's found.
-        # Then trim off all quantities at /maximum/ ndtset occurrences
+        # Some quantities will need to be trim off  up to /maximum/ ndtset occurrences
         ndtset = self.out_parser.get('ndtset')[0]
 
         getwfk = self.out_parser.get('getwfk')
