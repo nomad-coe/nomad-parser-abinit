@@ -679,14 +679,8 @@ class AbinitOutParser(TextParser):
         return [chemical_symbols[int(znucl[n_at - 1])] for n_at in typat]
 
 
-class AbinitParser(FairdiParser):
+class AbinitParserInterface:
     def __init__(self):
-        super().__init__(
-            name='parsers/abinit', code_name='ABINIT', code_homepage='https://www.abinit.org/',
-            mainfile_contents_re=(r'^\n*\.Version\s*[0-9.]*\s*of ABINIT\s*'))
-
-        self._metainfo_env = m_env
-
         self.out_parser = AbinitOutParser()
         self.dos_parser = DataTextParser()
 
@@ -941,8 +935,11 @@ class AbinitParser(FairdiParser):
                     continue
                 setattr(sec_input, 'x_abinit_var_%s' % (key), val[i])
 
-    def _init_parsers(self):
+    def init_parser(self):
         self.out_parser.mainfile = self.filepath
+
+    def reuse_parser(self, parser):
+        self.out_parser.quantities = parser.out_parser.quantities
 
     def parse(self, filepath, archive, logger):
         self.filepath = os.path.abspath(filepath)
@@ -950,7 +947,7 @@ class AbinitParser(FairdiParser):
         self.maindir = os.path.dirname(self.filepath)
         self.logger = logger if logger is not None else logging
 
-        self._init_parsers()
+        self.init_parser()
 
         sec_run = self.archive.m_create(Run)
         sec_run.program_name = 'ABINIT'
@@ -981,3 +978,23 @@ class AbinitParser(FairdiParser):
         datasets = self.out_parser.get('dataset', [])
         for dataset in datasets:
             self.parse_dataset(dataset)
+
+
+class AbinitParser(FairdiParser):
+    def __init__(self):
+        super().__init__(
+            name='parsers/abinit', code_name='ABINIT', code_homepage='https://www.abinit.org/',
+            mainfile_contents_re=(r'^\n*\.Version\s*[0-9.]*\s*of ABINIT\s*'))
+
+        self._metainfo_env = m_env
+        self.parser = None
+
+    def parse(self, filepath, archive, logger):
+        parser = AbinitParserInterface()
+
+        if self.parser is not None:
+            parser.reuse_parser(self.parser)
+        else:
+            self.parser = parser
+
+        parser.parse(filepath, archive, logger)
