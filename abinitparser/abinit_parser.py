@@ -679,8 +679,12 @@ class AbinitOutParser(TextParser):
         return [chemical_symbols[int(znucl[n_at - 1])] for n_at in typat]
 
 
-class AbinitParserInterface:
+class AbinitParser(FairdiParser):
     def __init__(self):
+        super().__init__(
+            name='parsers/abinit', code_name='ABINIT', code_homepage='https://www.abinit.org/',
+            mainfile_contents_re=(r'^\n*\.Version\s*[0-9.]*\s*of ABINIT\s*'))
+        self._metainfo_env = m_env
         self.out_parser = AbinitOutParser()
         self.dos_parser = DataTextParser()
 
@@ -978,23 +982,3 @@ class AbinitParserInterface:
         datasets = self.out_parser.get('dataset', [])
         for dataset in datasets:
             self.parse_dataset(dataset)
-
-
-class AbinitParser(FairdiParser):
-    def __init__(self):
-        super().__init__(
-            name='parsers/abinit', code_name='ABINIT', code_homepage='https://www.abinit.org/',
-            mainfile_contents_re=(r'^\n*\.Version\s*[0-9.]*\s*of ABINIT\s*'))
-
-        self._metainfo_env = m_env
-        self.parser = None
-
-    def parse(self, filepath, archive, logger):
-        parser = AbinitParserInterface()
-
-        if self.parser is not None:
-            parser.reuse_parser(self.parser)
-        else:
-            self.parser = parser
-
-        parser.parse(filepath, archive, logger)
