@@ -598,7 +598,7 @@ class AbinitOutParser(TextParser):
 
         self._quantities.append(Quantity(
             'dataset',
-            r'==\s*(DATASET\s*\d+\s*==[\s\S]+?)\-Cartesian components of stress tensor \(GPa\)',
+            r'==\s*(DATASET\s*\d+\s*==[\s\S]+?)(?:\-Cartesian components of stress tensor \(GPa\)|== END DATASET)',
             repeats=True, sub_parser=TextParser(quantities=[
                 Quantity(
                     'x_abinit_dataset_number',
@@ -625,7 +625,7 @@ class AbinitOutParser(TextParser):
                 Quantity(
                     'results',
                     r'\-+iterations are completed or convergence reached\-+([\s\S]+)'
-                    r'(sigma\(\d \d\)\s*=\s*[\+\-\d\.E]+)', repeats=False,
+                    r'(?:(sigma\(\d \d\)\s*=\s*[\+\-\d\.E]+)|={80})', repeats=False,
                     sub_parser=TextParser(quantities=results))])))
 
     @property
@@ -714,8 +714,6 @@ class AbinitParser(FairdiParser):
         sec_run = self.archive.section_run[-1]
 
         energy_total = section.get('energy_total')
-        if energy_total is None:
-            return
 
         sec_scc = sec_run.m_create(SingleConfigurationCalculation)
         sec_scc.energy_total = energy_total
@@ -850,7 +848,11 @@ class AbinitParser(FairdiParser):
             sec_system = self.parse_system(dataset, section)
             sec_scc = self.parse_scc(dataset, section)
 
-            sec_scc.single_configuration_calculation_to_system_ref = sec_system
+            if sec_scc is None:
+                return
+
+            if sec_system is not None:
+                sec_scc.single_configuration_calculation_to_system_ref = sec_system
             sec_scc.single_configuration_to_calculation_method_ref = sec_method
 
         def parse_dos():
@@ -902,6 +904,9 @@ class AbinitParser(FairdiParser):
                 sec_eigenvalues.eigenvalues_occupation = occs
 
         def parse_scf(section):
+            if not sec_run.section_single_configuration_calculation:
+                return
+
             sec_scc = sec_run.section_single_configuration_calculation[-1]
 
             self_consistent = section.get('self_consistent', {})
