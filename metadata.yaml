@@ -1,9 +1,11 @@
-codeLabel: 'ABINIT'
+codeLabel: ABINIT
 codeLabelStyle: all in capitals
+codeName: abinit
 codeUrl: https://www.abinit.org/
 parserDirName: dependencies/parsers/abinit/
-parserGitUrl: https://gitlab.mpcdf.mpg.de/nomad-lab/parser-abinit
+parserGitUrl: https://github.com/nomad-coe/nomad-parser-abinit.git
 parserSpecific: ''
+preamble: ''
 tableOfFiles: |
   |Input Filename| Description|
   |--- | --- |
@@ -15,7 +17,3 @@ tableOfFiles: |
   |`*_o_EIG`|text file, eigenvalues|
   |`*_o_WFK`|binary file, wavefunction|
   |`log` | plain text, redirection of screen output (`stdout`)|
-
-
-
-
