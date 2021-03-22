@@ -706,7 +706,8 @@ class AbinitParser(FairdiParser):
         self.out_parser = AbinitOutParser()
         self.dos_parser = DataTextParser()
 
-    def parse_system(self, dataset, section):
+    def parse_system(self, n_dataset, section):
+        dataset = self.out_parser.get('dataset')[n_dataset]
         sec_run = self.archive.section_run[-1]
 
         nd = dataset.get('x_abinit_dataset_number')
@@ -728,7 +729,8 @@ class AbinitParser(FairdiParser):
 
         return sec_system
 
-    def parse_scc(self, dataset, section):
+    def parse_scc(self, n_dataset, section):
+        dataset = self.out_parser.get('dataset')[n_dataset]
         sec_run = self.archive.section_run[-1]
 
         energy_total = section.get('energy_total')
@@ -760,7 +762,8 @@ class AbinitParser(FairdiParser):
 
         return sec_scc
 
-    def parse_method(self, dataset):
+    def parse_method(self, n_dataset):
+        dataset = self.out_parser.get('dataset')[n_dataset]
         sec_run = self.archive.section_run[-1]
         smearing_kinds = [
             '', '', '', 'fermi', 'marzari-vanderbilt', 'marzari-vanderbilt',
@@ -811,7 +814,8 @@ class AbinitParser(FairdiParser):
 
         return sec_method
 
-    def parse_sampling_method(self, dataset):
+    def parse_sampling_method(self, n_dataset):
+        dataset = self.out_parser.get('dataset')[n_dataset]
         sec_run = self.archive.section_run[-1]
         nd = dataset.get('x_abinit_dataset_number')
         sec_sampling_method = sec_run.m_create(SamplingMethod)
@@ -844,7 +848,8 @@ class AbinitParser(FairdiParser):
             sec_sampling_method.geometry_optimization_energy_change = pint.Quantity(
                 tolmxde, 'hartree')
 
-    def parse_dataset(self, dataset):
+    def parse_dataset(self, n_dataset):
+        dataset = self.out_parser.get('dataset')[n_dataset]
         sec_run = self.archive.section_run[-1]
         sec_basis_set_cell_dependent = sec_run.m_create(BasisSetCellDependent)
         sec_basis_set_cell_dependent.basis_set_cell_dependent_kind = 'plane_waves'
@@ -858,13 +863,13 @@ class AbinitParser(FairdiParser):
             sec_basis_set_cell_dependent.basis_set_cell_dependent_name = name
 
         # one section_method per dataset
-        sec_method = self.parse_method(dataset)
+        sec_method = self.parse_method(n_dataset)
 
-        self.parse_sampling_method(dataset)
+        self.parse_sampling_method(n_dataset)
 
         def parse_configurations(section):
-            sec_system = self.parse_system(dataset, section)
-            sec_scc = self.parse_scc(dataset, section)
+            sec_system = self.parse_system(n_dataset, section)
+            sec_scc = self.parse_scc(n_dataset, section)
 
             if sec_scc is None:
                 return
@@ -893,9 +898,11 @@ class AbinitParser(FairdiParser):
             sec_dos.dos_energies = pint.Quantity(dos.T[0].T[0], 'hartree')
             sec_dos.number_of_dos_values = np.shape(dos)[1]
 
-            unit_volume = dataset.get('x_abinit_unit_cell_volume').magnitude
-            sec_dos.dos_values = dos.T[1].T * unit_volume
-            sec_dos.dos_integrated_values = dos.T[2].T * unit_volume
+            unit_volume = dataset.get('x_abinit_unit_cell_volume')
+            dos_values = pint.Quantity(dos.T[1].T, '1/hartree') * unit_volume
+            sec_dos.dos_values = dos_values.to('m**3/joule').magnitude
+            integrated_dos = dos.T[2].T * unit_volume
+            sec_dos.dos_integrated_values = integrated_dos.to('m**3').magnitude
 
         def parse_eigenvalues():
             data = dataset.get('results', {}).get('eigenvalues', None)
@@ -964,6 +971,9 @@ class AbinitParser(FairdiParser):
 
     def init_parser(self):
         self.out_parser.mainfile = self.filepath
+        self.out_parser.logger = self.logger
+        self.out_parser._input_vars = None
+        self.out_parser._n_datasets = None
 
     def reuse_parser(self, parser):
         self.out_parser.quantities = parser.out_parser.quantities
@@ -1002,6 +1012,5 @@ class AbinitParser(FairdiParser):
 
         self.parse_var()
 
-        datasets = self.out_parser.get('dataset', [])
-        for dataset in datasets:
-            self.parse_dataset(dataset)
+        for n in range(len(self.out_parser.get('dataset', []))):
+            self.parse_dataset(n)
