@@ -258,9 +258,9 @@ class section_run(public.section_run):
         repeats=True,
         a_legacy=LegacyDefinition(name='x_abinit_section_var'))
 
+
 class section_method(public.section_method):
-    m_def = Section(validate=False, extends_base_section=True,
-    a_legacy=LegacyDefinition(name='section_method'))
+    m_def = Section(validate=False, extends_base_section=True, a_legacy=LegacyDefinition(name='section_method'))
 
     x_abinit_tolvrs = Quantity(
         type=np.dtype(np.float64),
@@ -302,6 +302,7 @@ class section_method(public.section_method):
         ABINIT variable Integer for Self-Consistent-Field cycles
         ''',
         a_legacy=LegacyDefinition(name='x_abinit_iscf'))
+
 
 class section_system(public.section_system):
 
@@ -424,7 +425,6 @@ class section_single_configuration_calculation(public.section_single_configurati
         Band energy
         ''',
         a_legacy=LegacyDefinition(name='x_abinit_energy_band'))
-
 
     x_abinit_section_stress_tensor = SubSection(
         sub_section=SectionProxy('x_abinit_section_stress_tensor'),

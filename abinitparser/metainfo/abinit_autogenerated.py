@@ -2543,8 +2543,6 @@ class x_abinit_section_input(MSection):
         categories=[x_abinit_var],
         a_legacy=LegacyDefinition(name='x_abinit_var_irdwfq'))
 
-
-
     x_abinit_var_isecur = Quantity(
         type=np.dtype(np.int32),
         shape=[],
