@@ -40,7 +40,7 @@ def test_scf(parser):
     assert sec_run.program_version == '7.8.2'
     assert sec_run.x_abinit_total_cpu_time == 1.4
     assert sec_run.run_clean_end
-    assert sec_run.time_run_date_start.magnitude == approx(1.46712528e+09)
+    assert sec_run.time_run_date_start.magnitude == 1467128880.0
     sec_dataset = sec_run.x_abinit_section_dataset
     assert len(sec_dataset) == 1
     assert len(sec_dataset[0].x_abinit_section_input[0].x_abinit_var_symrel) == 432

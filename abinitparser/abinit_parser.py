@@ -21,7 +21,7 @@ import re
 import pint
 import numpy as np
 import logging
-import time
+from datetime import datetime
 from ase.data import chemical_symbols
 
 from nomad.parsing.parser import FairdiParser
@@ -1005,10 +1005,10 @@ class AbinitParser(FairdiParser):
         if self.out_parser.get('run_clean_end') is not None:
             sec_run.run_clean_end = True
 
-        abi_time = time.strptime(str("%s %s") % (
+        abi_time = datetime.strptime(str("%s %s") % (
             self.out_parser.get('x_abinit_start_date'),
             self.out_parser.get('x_abinit_start_time')), "%a %d %b %Y %Hh%M")
-        sec_run.time_run_date_start = time.mktime(abi_time)
+        sec_run.time_run_date_start = (abi_time - datetime.fromtimestamp(0)).total_seconds()
 
         self.parse_var()
 
