@@ -1008,7 +1008,7 @@ class AbinitParser(FairdiParser):
         abi_time = datetime.strptime(str("%s %s") % (
             self.out_parser.get('x_abinit_start_date'),
             self.out_parser.get('x_abinit_start_time')), "%a %d %b %Y %Hh%M")
-        sec_run.time_run_date_start = (abi_time - datetime.fromtimestamp(0)).total_seconds()
+        sec_run.time_run_date_start = (abi_time - datetime(1970, 1, 1)).total_seconds()
 
         self.parse_var()
 
