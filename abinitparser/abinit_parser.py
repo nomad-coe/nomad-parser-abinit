@@ -899,10 +899,10 @@ class AbinitParser(FairdiParser):
             sec_dos.number_of_dos_values = np.shape(dos)[1]
 
             unit_volume = dataset.get('x_abinit_unit_cell_volume')
-            dos_values = pint.Quantity(dos.T[1].T, '1/hartree') * unit_volume
-            sec_dos.dos_values = dos_values.to('m**3/joule').magnitude
-            integrated_dos = dos.T[2].T * unit_volume
-            sec_dos.dos_integrated_values = integrated_dos.to('m**3').magnitude
+            dos_values = pint.Quantity(dos.T[1].T, '1/hartree') * unit_volume.magnitude
+            sec_dos.dos_values = dos_values.to('1/joule').magnitude
+            integrated_dos = dos.T[2].T * unit_volume.magnitude
+            sec_dos.dos_integrated_values = integrated_dos
 
         def parse_eigenvalues():
             data = dataset.get('results', {}).get('eigenvalues', None)
