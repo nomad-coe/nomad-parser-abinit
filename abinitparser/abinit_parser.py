@@ -18,12 +18,12 @@
 #
 import os
 import re
-import pint
 import numpy as np
 import logging
 from datetime import datetime
 from ase.data import chemical_symbols
 
+from nomad.units import ureg
 from nomad.parsing.parser import FairdiParser
 from nomad.parsing.file_parser.text_parser import TextParser, Quantity, DataTextParser
 from nomad.datamodel.metainfo.common_dft import Run, Method, MethodBasisSet,\
@@ -520,7 +520,7 @@ class AbinitOutParser(TextParser):
             stress_tensor[2][0] = stress_tensor[0][2] = val[3]
             stress_tensor[2][2] = val[4]
             stress_tensor[1][0] = stress_tensor[0][1] = val[5]
-            return pint.Quantity(stress_tensor, 'hartree/bohr**3')
+            return stress_tensor * (ureg.hartree / ureg.bohr**3)
 
         def str_to_eigenvalues(val_in):
             return [float(v) for v in val_in.split() if v[-1].isdecimal()]
@@ -554,29 +554,29 @@ class AbinitOutParser(TextParser):
             Quantity(
                 'cartesian_coordinates',
                 r'Cartesian coordinates \(xcart\) \[bohr\]\s*([\s\d\.Ee\+\-]+)',
-                repeats=False, str_operation=str_to_array, convert=False, unit='bohr'),
+                repeats=False, str_operation=str_to_array, convert=False, unit=ureg.bohr),
             Quantity(
                 'cartesian_forces',
                 r'Cartesian forces \(fcart\)[\s\S]+?\(free atoms\)\s*([\s\d\.Ee\+\-]+)',
-                repeats=False, str_operation=str_to_array, convert=False, unit='hartree/bohr'),
+                repeats=False, str_operation=str_to_array, convert=False, unit=ureg.hartree / ureg.bohr),
             Quantity(
                 'energy_total',
                 r'Total energy \(etotal\) \[Ha\]=\s*([\-\+\d\.Ee]+)', repeats=False,
-                dtype=float, unit='hartree')]
+                dtype=float, unit=ureg.hartree)]
 
         energy_components = [Quantity(
             key, r'\s*%s\s*=\s*([\d\.E\-\+]+)' % val, repeats=False, dtype=float,
-            unit='hartree') for key, val in self.energy_components.items()]
+            unit=ureg.hartree) for key, val in self.energy_components.items()]
 
         results = [
             Quantity(
                 'cartesian_coordinates',
                 r'\s*cartesian coordinates \(angstrom\) at end:\s*([\s\d\.Ee\+\-]+)',
-                repeats=False, str_operation=str_to_array, convert=False, unit='angstrom'),
+                repeats=False, str_operation=str_to_array, convert=False, unit=ureg.angstrom),
             Quantity(
                 'cartesian_forces',
                 r'\s*cartesian forces \(hartree/bohr\) at end\:\s*([\s\d\.Ee\+\-]+)',
-                repeats=False, str_operation=str_to_array, convert=False, unit='hartree/bohr'),
+                repeats=False, str_operation=str_to_array, convert=False, unit=ureg.hartree / ureg.bohr),
             Quantity(
                 'x_abinit_eig_filename',
                 r'\s*prteigrs : about to open file\s*(\S+)', repeats=False,
@@ -584,11 +584,11 @@ class AbinitOutParser(TextParser):
             Quantity(
                 'fermi_energy',
                 r'\s*Fermi \(or HOMO\) energy \(hartree\) =\s*([-+0-9.]+)',
-                repeats=False, dtype=float, unit='hartree'),
+                repeats=False, dtype=float, unit=ureg.hartree),
             Quantity(
                 'x_abinit_magnetisation',
                 r'\s*Magnetisation \(Bohr magneton\)=\s*([-+0-9.eEdD]*)\s*',
-                repeats=False, dtype=float, unit='bohr_magneton'),
+                repeats=False, dtype=float, unit=ureg.bohr_magneton),
             Quantity(
                 'eigenvalues',
                 r'\s*kpt#\s*(\d+), nband=\s*(\d+), wtk=\s*([\d\.]+)\s*, '
@@ -601,7 +601,7 @@ class AbinitOutParser(TextParser):
             Quantity(
                 'energy_total',
                 r'Total energy\(eV\)=\s*([\d\.\-\+Ee]+)\s*;',
-                repeats=False, dtype=float, unit='eV'),
+                repeats=False, dtype=float, unit=ureg.eV),
             Quantity(
                 'stress_tensor',
                 r'Cartesian components of stress tensor \(hartree/bohr\^3\)\s*'
@@ -631,7 +631,7 @@ class AbinitOutParser(TextParser):
                 Quantity(
                     'x_abinit_unit_cell_volume',
                     r'Unit cell volume ucvol\s*=\s*([\d\.\+Ee]+)', dtype=float,
-                    unit='bohr**3'),
+                    unit=ureg.bohr ** 3),
                 Quantity(
                     'self_consistent',
                     r'\={10}\s*(iter\s*Etot[\s\S]+?)\={10}', repeats=False,
@@ -722,8 +722,7 @@ class AbinitParser(FairdiParser):
         sec_system.configuration_periodic_dimensions = [True, True, True]
         sec_system.number_of_atoms = len(atom_labels)
         lattice_vectors = dataset.get('x_abinit_vprim')
-        lattice_vectors = np.eye(3) if lattice_vectors is None else pint.Quantity(
-            lattice_vectors, 'bohr')
+        lattice_vectors = np.eye(3) if lattice_vectors is None else lattice_vectors * ureg.bohr
         sec_system.lattice_vectors = lattice_vectors
         sec_system.simulation_cell = lattice_vectors
 
@@ -749,8 +748,7 @@ class AbinitParser(FairdiParser):
             'nsppol', dataset.get('x_abinit_dataset_number'), 1)
         fermi_energy = section.get('fermi_energy')
         if fermi_energy is not None:
-            sec_scc.energy_reference_fermi = pint.Quantity(
-                [fermi_energy.magnitude] * nsppol, fermi_energy.units)
+            sec_scc.energy_reference_fermi = ([fermi_energy.magnitude] * nsppol) * fermi_energy.units
 
         # energy contributions, should be moved to EnergyContributions
         # TODO fix metainfo for energy contributions
@@ -778,7 +776,7 @@ class AbinitParser(FairdiParser):
 
         toldfe = self.out_parser.get_input_var('toldfe', nd)
         if toldfe is not None:
-            sec_method.scf_threshold_energy_change = pint.Quantity(toldfe, 'hartree')
+            sec_method.scf_threshold_energy_change = toldfe * ureg.hartree
         # not sure what this is for
         sec_method.self_interaction_correction_method = ''
         occopt = self.out_parser.get_input_var('occopt', nd, 1)
@@ -786,7 +784,7 @@ class AbinitParser(FairdiParser):
         sec_method.smearing_kind = smearing
         tsmear = self.out_parser.get_input_var('tsmear', nd)
         if tsmear is not None:
-            sec_method.smearing_width = pint.Quantity(tsmear, 'hartree').to('joule').magnitude
+            sec_method.smearing_width = (tsmear * ureg.hartree).to('joule').magnitude
 
         sec_method_basis_set = sec_method.m_create(MethodBasisSet)
         sec_method_basis_set.method_basis_set_kind = 'wavefunction'
@@ -840,13 +838,11 @@ class AbinitParser(FairdiParser):
 
         tolmxf = self.out_parser.get_input_var('tolmxf', nd)
         if tolmxf is not None:
-            sec_sampling_method.geometry_optimization_threshold_force = pint.Quantity(
-                tolmxf, 'hartree/bohr')
+            sec_sampling_method.geometry_optimization_threshold_force = tolmxf * (ureg.hartree / ureg.bohr)
 
         tolmxde = self.out_parser.get_input_var('tolmxde', nd)
         if tolmxde is not None:
-            sec_sampling_method.geometry_optimization_energy_change = pint.Quantity(
-                tolmxde, 'hartree')
+            sec_sampling_method.geometry_optimization_energy_change = tolmxde * ureg.hartree
 
     def parse_dataset(self, n_dataset):
         dataset = self.out_parser.get('dataset')[n_dataset]
@@ -857,7 +853,7 @@ class AbinitParser(FairdiParser):
         nd = dataset.get('x_abinit_dataset_number')
         ecut = self.out_parser.get_input_var('ecut', nd)
         if ecut is not None:
-            ecut = pint.Quantity(ecut, 'hartree')
+            ecut = ecut * ureg.hartree
             sec_basis_set_cell_dependent.basis_set_planewave_cutoff = ecut
             name = 'PW_%s' % ecut.to('rydberg').magnitude
             sec_basis_set_cell_dependent.basis_set_cell_dependent_name = name
@@ -895,11 +891,11 @@ class AbinitParser(FairdiParser):
             sec_dos = sec_scc.m_create(Dos)
             sec_dos.dos_kind = 'electronic'
 
-            sec_dos.dos_energies = pint.Quantity(dos.T[0].T[0], 'hartree')
+            sec_dos.dos_energies = dos.T[0].T[0] * ureg.hartree
             sec_dos.number_of_dos_values = np.shape(dos)[1]
 
             unit_volume = dataset.get('x_abinit_unit_cell_volume')
-            dos_values = pint.Quantity(dos.T[1].T, '1/hartree') * unit_volume.magnitude
+            dos_values = dos.T[1].T * (1 / ureg.hartree) * unit_volume.magnitude
             sec_dos.dos_values = dos_values.to('1/joule').magnitude
             integrated_dos = dos.T[2].T * unit_volume.magnitude
             sec_dos.dos_integrated_values = integrated_dos
@@ -922,7 +918,7 @@ class AbinitParser(FairdiParser):
             sec_eigenvalues.number_of_eigenvalues = nband
             sec_eigenvalues.number_of_eigenvalues_kpoints = len(kpts)
             sec_eigenvalues.eigenvalues_kpoints = kpts
-            sec_eigenvalues.eigenvalues_values = pint.Quantity(eigs, 'hartree')
+            sec_eigenvalues.eigenvalues_values = eigs * ureg.hartree
             occs = dataset.get('results', {}).get('occupation_numbers')
             if occs is not None:
                 occs = np.reshape(occs, (nsppol, len(occs) // nsppol, np.size(occs) // len(occs)))
@@ -941,7 +937,7 @@ class AbinitParser(FairdiParser):
             energy_total_scf_iteration = self_consistent.get('energy_total_scf_iteration', [])
             for energy in energy_total_scf_iteration:
                 sec_scf_iteration = sec_scc.m_create(ScfIteration)
-                sec_scf_iteration.energy_total_scf_iteration = pint.Quantity(energy[0], 'hartree')
+                sec_scf_iteration.energy_total_scf_iteration = energy[0] * ureg.hartree
 
         # results of the single point calculation
         results = dataset.get('results')
