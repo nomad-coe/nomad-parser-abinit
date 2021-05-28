@@ -891,7 +891,7 @@ class AbinitParser(FairdiParser):
             sec_dos = sec_scc.m_create(Dos, SingleConfigurationCalculation.dos_electronic)
 
             sec_dos.dos_energies = dos.T[0].T[0] * ureg.hartree
-            sec_dos.n_of_dos_values = np.shape(dos)[1]
+            sec_dos.n_dos_values = np.shape(dos)[1]
 
             dos = np.transpose(dos, axes=(0, 2, 1))
             unit_volume = dataset.get('x_abinit_unit_cell_volume')
