@@ -66,11 +66,11 @@ def test_scf(parser):
     assert sec_scc.energy_reference_fermi[0].magnitude == approx(8.4504932e-19)
     assert sec_scc.x_abinit_energy_kinetic == approx(1.3343978e-17)
     assert len(sec_scc.section_scf_iteration) == 5
-    sec_eig = sec_scc.section_eigenvalues[0]
+    sec_eig = sec_scc.eigenvalues[0]
     assert sec_scc.section_scf_iteration[1].energy_total_scf_iteration.magnitude == approx(-3.86541222e-17)
-    assert np.shape(sec_eig.eigenvalues_values) == (1, 2, 5)
-    assert sec_eig.eigenvalues_values[0][1][2].magnitude == approx(8.4504932e-19)
-    assert sec_eig.eigenvalues_kpoints[0][0] == -0.25
+    assert np.shape(sec_eig.band_energies[1].band_energies_values) == (5,)
+    assert sec_eig.band_energies[1].band_energies_values[2].magnitude == approx(8.4504932e-19)
+    assert sec_eig.band_energies_kpoints[0][0] == -0.25
 
 
 def test_relax(parser):
@@ -91,8 +91,8 @@ def test_dos(parser):
 
     sec_sccs = archive.section_run[0].section_single_configuration_calculation
     assert len(sec_sccs) == 2
-    assert np.shape(sec_sccs[0].section_eigenvalues[0].eigenvalues_values) == (1, 6, 8)
-    assert np.shape(sec_sccs[1].section_eigenvalues[0].eigenvalues_values) == (2, 6, 8)
+    assert np.shape(sec_sccs[0].eigenvalues[0].band_energies[5].band_energies_values) == (8,)
+    assert np.shape(sec_sccs[1].eigenvalues[0].band_energies[11].band_energies_values) == (8,)
     assert np.shape(sec_sccs[0].dos_electronic[0].dos_total[0].dos_values) == (1601,)
     assert np.shape(sec_sccs[1].dos_electronic[0].dos_total[1].dos_values) == (1601,)
     assert sec_sccs[0].dos_electronic[0].dos_energies[70].magnitude == approx(-3.18261365e-18)
