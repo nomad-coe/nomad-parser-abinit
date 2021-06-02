@@ -890,16 +890,18 @@ class AbinitParser(FairdiParser):
             sec_scc = sec_run.section_single_configuration_calculation[-1]
             sec_dos = sec_scc.m_create(Dos, SingleConfigurationCalculation.dos_electronic)
 
-            sec_dos.dos_energies = dos.T[0].T[0] * ureg.hartree
-            sec_dos.n_dos_values = np.shape(dos)[1]
+            sec_dos.energies = dos.T[0].T[0] * ureg.hartree
+            sec_dos.n_energies = np.shape(dos)[1]
 
             dos = np.transpose(dos, axes=(0, 2, 1))
             unit_volume = dataset.get('x_abinit_unit_cell_volume')
+            n_atoms = len(self.out_parser.get_atom_labels(n_dataset))
             for spin in range(len(dos)):
-                sec_dos_values = sec_dos.m_create(DosValues, Dos.dos_total)
-                sec_dos_values.dos_spin = spin
-                sec_dos_values.dos_values = (dos[spin][1] * (1 / ureg.hartree) * unit_volume.magnitude).to('1/J').magnitude
-                sec_dos_values.dos_integrated = dos[spin][2] * unit_volume.magnitude
+                sec_dos_values = sec_dos.m_create(DosValues, Dos.total)
+                sec_dos_values.spin = spin
+                sec_dos.normalization_factor = 1 / (unit_volume.to('m ** 3').magnitude * n_atoms)
+                sec_dos_values.value = dos[spin][1] * (1 / ureg.hartree)
+                sec_dos_values.value_integrated = dos[spin][2]
 
         def parse_eigenvalues():
             data = dataset.get('results', {}).get('eigenvalues', None)
