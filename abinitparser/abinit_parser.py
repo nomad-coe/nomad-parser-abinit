@@ -895,11 +895,10 @@ class AbinitParser(FairdiParser):
 
             dos = np.transpose(dos, axes=(0, 2, 1))
             unit_volume = dataset.get('x_abinit_unit_cell_volume')
-            n_atoms = len(self.out_parser.get_atom_labels(n_dataset))
             for spin in range(len(dos)):
                 sec_dos_values = sec_dos.m_create(DosValues, Dos.total)
                 sec_dos_values.spin = spin
-                sec_dos.normalization_factor = 1 / (unit_volume.to('m ** 3').magnitude * n_atoms)
+                sec_dos.normalization_factor = 1 / unit_volume.to('m ** 3').magnitude
                 sec_dos_values.value = dos[spin][1] * (1 / ureg.hartree)
                 sec_dos_values.value_integrated = dos[spin][2]
 
