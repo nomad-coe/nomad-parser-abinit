@@ -917,17 +917,17 @@ class AbinitParser(FairdiParser):
 
             sec_scc = sec_run.section_single_configuration_calculation[-1]
             sec_eigenvalues = sec_scc.m_create(BandEnergies)
-            sec_eigenvalues.n_band_energies_kpoints = len(kpts)
-            sec_eigenvalues.band_energies_kpoints = kpts
+            sec_eigenvalues.n_kpoints = len(kpts)
+            sec_eigenvalues.kpoints = kpts
             sec_eigenvalues.n_bands = nband
             for spin in range(len(eigs)):
                 for kpt in range(len(eigs[spin])):
                     sec_eigenvalues_values = sec_eigenvalues.m_create(BandEnergiesValues)
-                    sec_eigenvalues_values.band_energies_spin = spin
-                    sec_eigenvalues_values.band_energies_kpoints_index = kpt
-                    sec_eigenvalues_values.band_energies_values = eigs[spin][kpt] * ureg.hartree
+                    sec_eigenvalues_values.spin = spin
+                    sec_eigenvalues_values.kpoints_index = kpt
+                    sec_eigenvalues_values.value = eigs[spin][kpt] * ureg.hartree
                     if occs is not None:
-                        sec_eigenvalues_values.eigenvalues_occupation = occs[spin][kpt]
+                        sec_eigenvalues_values.occupations = occs[spin][kpt]
 
         def parse_scf(section):
             if not sec_run.section_single_configuration_calculation:
