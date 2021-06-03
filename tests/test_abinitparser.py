@@ -60,11 +60,11 @@ def test_scf(parser):
     assert sec_system.lattice_vectors[2][0].magnitude == approx(2.693512e-10)
 
     sec_scc = sec_run.section_single_configuration_calculation[0]
-    assert sec_scc.energy_total.magnitude == approx(-3.86544728e-17)
-    assert np.max(sec_scc.atom_forces_raw.magnitude) == 0.
-    assert sec_scc.stress_tensor[2][2].magnitude == approx(-5.60539974e+08)
+    assert sec_scc.energy_total.value.magnitude == approx(-3.86544728e-17)
+    assert np.max(sec_scc.forces_total.value_raw.magnitude) == 0.
+    assert sec_scc.stress_total.value[2][2].magnitude == approx(-5.60539974e+08)
     assert sec_scc.energy_reference_fermi[0].magnitude == approx(8.4504932e-19)
-    assert sec_scc.x_abinit_energy_kinetic == approx(1.3343978e-17)
+    assert sec_scc.energy_kinetic_electronic.value.magnitude == approx(1.3343978e-17)
     assert len(sec_scc.section_scf_iteration) == 5
     sec_eig = sec_scc.eigenvalues[0]
     assert sec_scc.section_scf_iteration[1].energy_total_scf_iteration.magnitude == approx(-3.86541222e-17)
@@ -81,7 +81,7 @@ def test_relax(parser):
     sec_sccs = archive.section_run[0].section_single_configuration_calculation
     assert len(sec_sccs) == 5
     assert len(sec_sccs[2].section_scf_iteration) == 5
-    assert sec_sccs[3].energy_total.magnitude == approx(-4.93984603e-18)
+    assert sec_sccs[3].energy_total.value.magnitude == approx(-4.93984603e-18)
     assert sec_sccs[4].section_scf_iteration[1].energy_total_scf_iteration.magnitude == approx(-2.13640055e-18)
 
 
