@@ -942,7 +942,7 @@ class AbinitParser(FairdiParser):
             energy_total_scf_iteration = self_consistent.get('energy_total_scf_iteration', [])
             for energy in energy_total_scf_iteration:
                 sec_scf_iteration = sec_scc.m_create(ScfIteration)
-                sec_scf_iteration.energy_total_scf_iteration = energy[0] * ureg.hartree
+                sec_scf_iteration.m_add_sub_section(ScfIteration.energy_total, Energy(value=energy[0] * ureg.hartree))
 
         # results of the single point calculation
         results = dataset.get('results')
