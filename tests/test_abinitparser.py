@@ -66,7 +66,7 @@ def test_scf(parser):
     assert sec_scc.energy.fermi.magnitude == approx(8.4504932e-19)
     assert sec_scc.energy.kinetic_electronic.value.magnitude == approx(1.3343978e-17)
     assert len(sec_scc.scf_iteration) == 5
-    sec_eig = sec_scc.eigenvalues
+    sec_eig = sec_scc.eigenvalues[0]
     assert sec_scc.scf_iteration[1].energy.total.value.magnitude == approx(-3.86541222e-17)
     assert np.shape(sec_eig.value[0][1]) == (5,)
     assert sec_eig.value[0][1][2].magnitude == approx(8.4504932e-19)
@@ -91,12 +91,12 @@ def test_dos(parser):
 
     sec_sccs = archive.run[0].calculation
     assert len(sec_sccs) == 2
-    assert np.shape(sec_sccs[0].eigenvalues.value[0][5]) == (8,)
-    assert np.shape(sec_sccs[1].eigenvalues.value[1][5]) == (8,)
-    assert np.shape(sec_sccs[0].dos_electronic.total[0].value) == (1601,)
-    assert np.shape(sec_sccs[1].dos_electronic.total[1].value) == (1601,)
-    assert sec_sccs[0].dos_electronic.energies[70].magnitude == approx(-3.18261365e-18)
-    assert sec_sccs[0].dos_electronic.total[0].value[151].magnitude == approx(2.97494483e+14)
-    assert sec_sccs[1].dos_electronic.total[1].value[180].magnitude == approx(1.27484528e+15)
-    assert sec_sccs[0].dos_electronic.total[0].value_integrated[457] == approx(4.347007)
-    assert sec_sccs[1].dos_electronic.total[0].value_integrated[1025] == approx(7.028265)
+    assert np.shape(sec_sccs[0].eigenvalues[0].value[0][5]) == (8,)
+    assert np.shape(sec_sccs[1].eigenvalues[0].value[1][5]) == (8,)
+    assert np.shape(sec_sccs[0].dos_electronic[0].total[0].value) == (1601,)
+    assert np.shape(sec_sccs[1].dos_electronic[0].total[1].value) == (1601,)
+    assert sec_sccs[0].dos_electronic[0].energies[70].magnitude == approx(-3.18261365e-18)
+    assert sec_sccs[0].dos_electronic[0].total[0].value[151].magnitude == approx(2.97494483e+14)
+    assert sec_sccs[1].dos_electronic[0].total[1].value[180].magnitude == approx(1.27484528e+15)
+    assert sec_sccs[0].dos_electronic[0].total[0].value_integrated[457] == approx(4.347007)
+    assert sec_sccs[1].dos_electronic[0].total[0].value_integrated[1025] == approx(7.028265)
