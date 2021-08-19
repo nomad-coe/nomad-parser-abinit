@@ -777,6 +777,7 @@ class AbinitParser(FairdiParser):
         sec_dft = sec_method.m_create(DFT)
 
         sec_electronic = sec_method.m_create(Electronic)
+        sec_electronic.method = 'DFT'
         sec_electronic.n_spin_channels = int(self.out_parser.get_input_var('nsppol', nd, 1))
 
         sec_scf = sec_method.m_create(Scf)
@@ -932,7 +933,7 @@ class AbinitParser(FairdiParser):
             sec_eigenvalues.n_kpoints = len(kpts)
             sec_eigenvalues.kpoints = kpts
             sec_eigenvalues.n_bands = nband
-            sec_eigenvalues.value = eigs * ureg.hartree
+            sec_eigenvalues.energies = eigs * ureg.hartree
             if occs is not None:
                 sec_eigenvalues.occupations = occs
 

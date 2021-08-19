@@ -68,8 +68,8 @@ def test_scf(parser):
     assert len(sec_scc.scf_iteration) == 5
     sec_eig = sec_scc.eigenvalues[0]
     assert sec_scc.scf_iteration[1].energy.total.value.magnitude == approx(-3.86541222e-17)
-    assert np.shape(sec_eig.value[0][1]) == (5,)
-    assert sec_eig.value[0][1][2].magnitude == approx(8.4504932e-19)
+    assert np.shape(sec_eig.energies[0][1]) == (5,)
+    assert sec_eig.energies[0][1][2].magnitude == approx(8.4504932e-19)
     assert sec_eig.kpoints[0][0] == -0.25
 
 
@@ -91,8 +91,8 @@ def test_dos(parser):
 
     sec_sccs = archive.run[0].calculation
     assert len(sec_sccs) == 2
-    assert np.shape(sec_sccs[0].eigenvalues[0].value[0][5]) == (8,)
-    assert np.shape(sec_sccs[1].eigenvalues[0].value[1][5]) == (8,)
+    assert np.shape(sec_sccs[0].eigenvalues[0].energies[0][5]) == (8,)
+    assert np.shape(sec_sccs[1].eigenvalues[0].energies[1][5]) == (8,)
     assert np.shape(sec_sccs[0].dos_electronic[0].total[0].value) == (1601,)
     assert np.shape(sec_sccs[1].dos_electronic[0].total[1].value) == (1601,)
     assert sec_sccs[0].dos_electronic[0].energies[70].magnitude == approx(-3.18261365e-18)
