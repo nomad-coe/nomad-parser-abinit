@@ -795,6 +795,7 @@ class AbinitParser(FairdiParser):
             sec_smearing.width = (tsmear * ureg.hartree).to('joule').magnitude
 
         sec_basis_set = sec_method.m_create(BasisSet)
+        sec_basis_set.type = 'plane_waves'
         sec_basis_set.kind = 'wavefunction'
         sec_basis_set_cell_dependent = sec_basis_set.m_create(BasisSetCellDependent)
         sec_basis_set_cell_dependent.kind = 'plane_waves'
