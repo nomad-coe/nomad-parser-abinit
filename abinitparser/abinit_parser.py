@@ -26,12 +26,12 @@ from ase.data import chemical_symbols
 from nomad.units import ureg
 from nomad.parsing.parser import FairdiParser
 from nomad.parsing.file_parser.text_parser import TextParser, Quantity, DataTextParser
-from nomad.datamodel.metainfo.run.run import Run, Program, TimeRun
-from nomad.datamodel.metainfo.run.method import (
+from nomad.datamodel.metainfo.simulation.run import Run, Program, TimeRun
+from nomad.datamodel.metainfo.simulation.method import (
     Method, BasisSet, BasisSetCellDependent, Electronic, Smearing, Scf, DFT, XCFunctional,
-    Functional, MethodReference)
-from nomad.datamodel.metainfo.run.system import System, Atoms, SystemReference
-from nomad.datamodel.metainfo.run.calculation import (
+    Functional)
+from nomad.datamodel.metainfo.simulation.system import System, Atoms
+from nomad.datamodel.metainfo.simulation.calculation import (
     Calculation, Energy, EnergyEntry, Forces, ForcesEntry, Stress, StressEntry, Dos,
     DosValues, BandEnergies, ScfIteration)
 from nomad.datamodel.metainfo.workflow import Workflow, GeometryOptimization
@@ -885,8 +885,8 @@ class AbinitParser(FairdiParser):
                 return
 
             if sec_system is not None:
-                sec_scc.system_ref.append(SystemReference(value=sec_system))
-            sec_scc.method_ref.append(MethodReference(value=sec_method))
+                sec_scc.system_ref = sec_system
+            sec_scc.method_ref = sec_method
 
         def parse_dos():
             file_root = self.out_parser.get('x_abinit_output_files_root')
