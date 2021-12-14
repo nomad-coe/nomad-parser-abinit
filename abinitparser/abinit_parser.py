@@ -689,7 +689,7 @@ class AbinitOutParser(TextParser):
 
     def get_input_var(self, key, n_dataset, default=None):
         val = self.input_vars.get(key)
-        if val is None:
+        if val is None or val[n_dataset - 1] is None:
             val = [default] * n_dataset
         return val[n_dataset - 1]
 
